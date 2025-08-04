@@ -1,0 +1,356 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Énumérations
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  FRANCHISE_MANAGER
+  FRANCHISEE
+}
+
+enum FranchiseStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  IN_PREPARATION
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  EMERGENCY
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// Modèles
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      UserRole @default(FRANCHISEE)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  franchise       Franchise?
+  createdOrders   Order[]    @relation("CreatedByUser")
+  updatedOrders   Order[]    @relation("UpdatedByUser")
+  maintenanceCreated Maintenance[] @relation("CreatedByUser")
+  salesReports    SalesReport[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model Franchise {
+  id              String          @id @default(cuid())
+  businessName    String
+  siretNumber     String          @unique
+  vatNumber       String?
+  address         String
+  city            String
+  postalCode      String
+  region          String
+  contactEmail    String
+  contactPhone    String
+  status          FranchiseStatus @default(PENDING)
+  entryFee        Decimal         @default(50000.00)
+  entryFeePaid    Boolean         @default(false)
+  entryFeeDate    DateTime?
+  royaltyRate     Decimal         @default(4.00) // 4%
+  contractStartDate DateTime?
+  contractEndDate   DateTime?
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  userId          String          @unique
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicles        Vehicle[]
+  orders          Order[]
+  salesReports    SalesReport[]
+  invoices        Invoice[]
+
+  @@map("franchises")
+}
+
+model Warehouse {
+  id          String  @id @default(cuid())
+  name        String
+  address     String
+  city        String
+  postalCode  String
+  region      String
+  phone       String?
+  email       String?
+  capacity    Int     // Capacité de stockage
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stocks        Stock[]
+  orderItems    OrderItem[]
+  
+  @@map("warehouses")
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  products    Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  sku         String  @unique
+  barcode     String?
+  unitPrice   Decimal
+  unit        String  // kg, litre, pièce, etc.
+  minStock    Int     @default(0)
+  maxStock    Int?
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  categoryId  String
+  category    ProductCategory @relation(fields: [categoryId], references: [id])
+  stocks      Stock[]
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+model Stock {
+  id          String   @id @default(cuid())
+  quantity    Int
+  reservedQty Int      @default(0)
+  lastRestockDate DateTime?
+  expirationDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([productId, warehouseId])
+  @@map("stocks")
+}
+
+model Vehicle {
+  id            String        @id @default(cuid())
+  licensePlate  String        @unique
+  brand         String
+  model         String
+  year          Int
+  vin           String        @unique
+  status        VehicleStatus @default(AVAILABLE)
+  purchaseDate  DateTime
+  purchasePrice Decimal
+  currentMileage Int?
+  lastInspectionDate DateTime?
+  nextInspectionDate DateTime?
+  insuranceNumber    String?
+  insuranceExpiry    DateTime?
+  latitude      Float?
+  longitude     Float?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  franchiseId   String?
+  franchise     Franchise?    @relation(fields: [franchiseId], references: [id])
+  maintenances  Maintenance[]
+
+  @@map("vehicles")
+}
+
+model Maintenance {
+  id            String            @id @default(cuid())
+  type          MaintenanceType
+  status        MaintenanceStatus @default(SCHEDULED)
+  title         String
+  description   String?
+  scheduledDate DateTime
+  completedDate DateTime?
+  cost          Decimal?
+  mileage       Int?
+  parts         String?           // JSON des pièces utilisées
+  laborHours    Decimal?
+  notes         String?
+  nextMaintenanceDate DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // Relations
+  vehicleId     String
+  vehicle       Vehicle           @relation(fields: [vehicleId], references: [id])
+  createdById   String
+  createdBy     User              @relation("CreatedByUser", fields: [createdById], references: [id])
+
+  @@map("maintenances")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique
+  status        OrderStatus @default(DRAFT)
+  orderDate     DateTime    @default(now())
+  requestedDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  totalAmount   Decimal     @default(0)
+  notes         String?
+  isFromDrivnCook Boolean   @default(true) // true = 80%, false = 20%
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  franchiseId   String
+  franchise     Franchise   @relation(fields: [franchiseId], references: [id])
+  createdById   String
+  createdBy     User        @relation("CreatedByUser", fields: [createdById], references: [id])
+  updatedById   String?
+  updatedBy     User?       @relation("UpdatedByUser", fields: [updatedById], references: [id])
+  orderItems    OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  quantity    Int
+  unitPrice   Decimal
+  totalPrice  Decimal
+  notes       String?
+
+  // Relations
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@map("order_items")
+}
+
+model SalesReport {
+  id              String   @id @default(cuid())
+  reportDate      DateTime
+  dailySales      Decimal
+  transactionCount Int     @default(0)
+  averageTicket   Decimal  @default(0)
+  location        String?
+  notes           String?
+  royaltyAmount   Decimal  @default(0) // 4% du CA
+  paymentStatus   PaymentStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  franchiseId     String
+  franchise       Franchise @relation(fields: [franchiseId], references: [id])
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+
+  @@unique([franchiseId, reportDate])
+  @@map("sales_reports")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime
+  amount        Decimal
+  description   String
+  paymentStatus PaymentStatus @default(PENDING)
+  paidDate      DateTime?
+  pdfPath       String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  franchiseId   String
+  franchise     Franchise     @relation(fields: [franchiseId], references: [id])
+
+  @@map("invoices")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // CREATE, UPDATE, DELETE
+  tableName String
+  recordId  String
+  oldValues String?  // JSON
+  newValues String?  // JSON
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

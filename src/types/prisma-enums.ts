@@ -1,0 +1,65 @@
+// Types d'énumérations Prisma exportés depuis le schema
+
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  FRANCHISE_MANAGER = 'FRANCHISE_MANAGER',
+  FRANCHISEE = 'FRANCHISEE'
+}
+
+export enum FranchiseStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  TERMINATED = 'TERMINATED'
+}
+
+export enum VehicleStatus {
+  AVAILABLE = 'AVAILABLE',
+  ASSIGNED = 'ASSIGNED',
+  MAINTENANCE = 'MAINTENANCE',
+  OUT_OF_SERVICE = 'OUT_OF_SERVICE'
+}
+
+export enum OrderStatus {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  IN_PREPARATION = 'IN_PREPARATION',
+  SHIPPED = 'SHIPPED',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED'
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  CANCELLED = 'CANCELLED'
+}
+
+export enum MaintenanceType {
+  PREVENTIVE = 'PREVENTIVE',
+  CORRECTIVE = 'CORRECTIVE',
+  EMERGENCY = 'EMERGENCY'
+}
+
+export enum MaintenanceStatus {
+  SCHEDULED = 'SCHEDULED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED'
+}
+
+// Types de session étendus pour NextAuth
+export interface ExtendedUser {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+  franchiseId: string | null
+}
+
+export interface ExtendedSession {
+  user: ExtendedUser
+}

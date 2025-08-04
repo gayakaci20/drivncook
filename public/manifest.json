@@ -1,0 +1,35 @@
+{
+    "name": "DRIV'N COOK",
+    "short_name": "DRIV'N COOK",
+    "description": "DRIV'N COOK",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#FACC15",
+    "categories": ["productivity", "utilities"],
+    "icons": [
+      {
+        "src": "/favicon.ico",
+        "sizes": "64x64 32x32 24x24 16x16",
+        "type": "image/x-icon"
+      },
+      {
+        "src": "/favicon.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/favicon.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/banner.png",
+        "sizes": "1280x640 1200x630",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ]
+  } 
