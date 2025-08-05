@@ -39,7 +39,6 @@ const navigation: NavItem[] = [
     children: [
       { title: 'Tous les franchisés', href: '/admin/franchises', icon: Users },
       { title: 'Nouveau franchisé', href: '/admin/franchises/new', icon: Users },
-      { title: 'Demandes en attente', href: '/admin/franchises/pending', icon: Users }
     ]
   },
   {
@@ -186,7 +185,7 @@ export function AdminSidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-gray-200/70 dark:border-neutral-800">
         <div className="text-xs text-gray-500 dark:text-neutral-400 text-center">
-          Version 1.0.0
+          © 2025 Driv'n Cook. Tous droits réservés.
         </div>
       </div>
     </div>

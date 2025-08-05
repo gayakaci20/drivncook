@@ -1,14 +1,22 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { 
-  withAuth, 
-  withErrorHandling,
-  createSuccessResponse
-} from '@/lib/api-utils'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { UserRole } from '@/types/prisma-enums'
 
 // GET /api/dashboard/stats - Récupérer les statistiques du dashboard
-const handler = withErrorHandling(async (request: NextRequest, context: any, session: any) => {
+export async function GET(request: NextRequest) {
+  try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
+
+    if (!['SUPER_ADMIN', 'ADMIN', 'FRANCHISE_MANAGER', 'FRANCHISEE'].includes(session.user.role)) {
+      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
+    }
   const { searchParams } = new URL(request.url)
   const period = searchParams.get('period') || '30' // jours
   const franchiseId = searchParams.get('franchiseId') || ''
@@ -140,32 +148,35 @@ const handler = withErrorHandling(async (request: NextRequest, context: any, ses
       })
     )
 
-    return createSuccessResponse({
-      overview: {
-        totalFranchises,
-        activeFranchises,
-        totalVehicles,
-        availableVehicles,
-        pendingOrders,
-        totalSales: recentSales._sum.dailySales || 0,
-        salesCount: recentSales._count,
-        unpaidAmount: unpaidInvoices._sum.amount || 0,
-        unpaidCount: unpaidInvoices._count,
-        monthlyRoyalties: monthlyRevenue._sum.royaltyAmount || 0
-      },
-      charts: {
-        dailySales: dailySales.map((item: any) => ({
-          date: item.reportDate,
-          sales: item._sum.dailySales || 0,
-          royalties: item._sum.royaltyAmount || 0
-        })),
-        topFranchises: topFranchisesWithDetails.map((item: any) => ({
-          franchiseId: item.franchiseId,
-          franchiseName: `${item.franchise?.user.firstName} ${item.franchise?.user.lastName}`,
-          businessName: item.franchise?.businessName,
-          totalSales: item._sum.dailySales || 0,
-          totalRoyalties: item._sum.royaltyAmount || 0
-        }))
+    return NextResponse.json({
+      success: true,
+      data: {
+        overview: {
+          totalFranchises,
+          activeFranchises,
+          totalVehicles,
+          availableVehicles,
+          pendingOrders,
+          totalSales: Number(recentSales._sum.dailySales || 0),
+          salesCount: recentSales._count,
+          unpaidAmount: Number(unpaidInvoices._sum.amount || 0),
+          unpaidCount: unpaidInvoices._count,
+          monthlyRoyalties: Number(monthlyRevenue._sum.royaltyAmount || 0)
+        },
+        charts: {
+          dailySales: dailySales.map((item: any) => ({
+            date: item.reportDate,
+            sales: Number(item._sum.dailySales || 0),
+            royalties: Number(item._sum.royaltyAmount || 0)
+          })),
+          topFranchises: topFranchisesWithDetails.map((item: any) => ({
+            franchiseId: item.franchiseId,
+            franchiseName: `${item.franchise?.user.firstName} ${item.franchise?.user.lastName}`,
+            businessName: item.franchise?.businessName,
+            totalSales: Number(item._sum.dailySales || 0),
+            totalRoyalties: Number(item._sum.royaltyAmount || 0)
+          }))
+        }
       }
     })
   }
@@ -256,32 +267,50 @@ const handler = withErrorHandling(async (request: NextRequest, context: any, ses
       })
     ])
 
-    return createSuccessResponse({
-      overview: {
-        totalVehicles: myVehicles.length,
-        activeVehicles: myVehicles.filter((v: any) => v.status === 'ASSIGNED').length,
-        totalSales: mySales._sum.dailySales || 0,
-        totalTransactions: mySales._sum.transactionCount || 0,
-        averageTicket: mySales._avg.averageTicket || 0,
-        totalRoyalties: mySales._sum.royaltyAmount || 0,
-        pendingInvoices: myInvoices.filter((i: any) => i.paymentStatus === 'PENDING').length
-      },
-      vehicles: myVehicles,
-      recentOrders: myOrders,
-      recentInvoices: myInvoices,
-      charts: {
-        salesEvolution: recentReports.map((report: any) => ({
-          date: report.reportDate,
-          sales: report.dailySales,
-          transactions: report.transactionCount,
-          averageTicket: report.averageTicket,
-          royalties: report.royaltyAmount
-        }))
+    return NextResponse.json({
+      success: true,
+      data: {
+        overview: {
+          totalVehicles: myVehicles.length,
+          activeVehicles: myVehicles.filter((v: any) => v.status === 'ASSIGNED').length,
+          totalSales: Number(mySales._sum.dailySales || 0),
+          totalTransactions: Number(mySales._sum.transactionCount || 0),
+          averageTicket: Number(mySales._avg.averageTicket || 0),
+          totalRoyalties: Number(mySales._sum.royaltyAmount || 0),
+          pendingInvoices: myInvoices.filter((i: any) => i.paymentStatus === 'PENDING').length
+        },
+        vehicles: myVehicles.map((v: any) => ({
+          ...v,
+          currentMileage: v.currentMileage ? Number(v.currentMileage) : null
+        })),
+        recentOrders: myOrders.map((o: any) => ({
+          ...o,
+          totalAmount: Number(o.totalAmount)
+        })),
+        recentInvoices: myInvoices.map((i: any) => ({
+          ...i,
+          amount: Number(i.amount)
+        })),
+        charts: {
+          salesEvolution: recentReports.map((report: any) => ({
+            date: report.reportDate,
+            sales: Number(report.dailySales),
+            transactions: Number(report.transactionCount),
+            averageTicket: Number(report.averageTicket),
+            royalties: Number(report.royaltyAmount)
+          }))
+        }
       }
     })
   }
 
-  return createSuccessResponse({})
-})
+  return NextResponse.json({ success: true, data: {} })
 
-export const GET = withAuth(handler, [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE])
+  } catch (error) {
+    console.error('Erreur API dashboard stats:', error)
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur serveur interne'
+    }, { status: 500 })
+  }
+}

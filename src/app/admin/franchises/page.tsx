@@ -76,21 +76,58 @@ export default function AdminFranchisesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedFranchises, setSelectedFranchises] = useState<string[]>([])
+  const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchFranchises()
-  }, [searchTerm, statusFilter])
+    console.log('Session data:', session)
+    console.log('User role:', session?.user?.role)
+    if (session) {
+      fetchFranchises()
+    } else {
+      console.log('No session found')
+    }
+  }, [searchTerm, statusFilter, session])
 
   const fetchFranchises = async () => {
     try {
+      if (!session?.user?.role) {
+        console.error('No user role found in session')
+        setAuthError('Aucun rôle utilisateur trouvé dans la session')
+        setLoading(false)
+        return
+      }
+
+      if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+        console.error('User role not authorized:', session.user.role)
+        setAuthError(`Rôle non autorisé: ${session.user.role}. Seuls les SUPER_ADMIN et ADMIN peuvent accéder à cette page.`)
+        setLoading(false)
+        return
+      }
+
+      setAuthError(null)
+
       const params = new URLSearchParams()
       if (searchTerm) params.append('search', searchTerm)
       if (statusFilter) params.append('status', statusFilter)
       
+      console.log('Fetching franchises with params:', params.toString())
+      console.log('User role:', session.user.role)
       const response = await fetch(`/api/franchises?${params.toString()}`)
+      console.log('Response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json()
-        setFranchises(data.data.data || [])
+        console.log('API Response:', data)
+        console.log('Franchises array length:', (data.data?.data || data.data || []).length)
+        setFranchises(data.data?.data || data.data || [])
+      } else {
+        const errorData = await response.json()
+        console.error('API Error:', response.status, errorData)
+        if (response.status === 401) {
+          console.error('Non authentifié - redirection vers login')
+        } else if (response.status === 403) {
+          console.error('Permissions insuffisantes')
+        }
       }
     } catch (error) {
       console.error('Erreur lors du chargement des franchisés:', error)
@@ -173,6 +210,19 @@ export default function AdminFranchisesPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto"></div>
           <p className="mt-2 text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (authError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Accès non autorisé</h2>
+          <p className="text-gray-600 mb-4">{authError}</p>
+          <p className="text-sm text-gray-500">Connectez-vous avec un compte administrateur.</p>
         </div>
       </div>
     )
@@ -268,7 +318,7 @@ export default function AdminFranchisesPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white" />
+              <Filter className="h-4 w-4 text-white/80" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -323,6 +373,22 @@ export default function AdminFranchisesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
+                    {franchises.length === 0 && !loading && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                          <div className="space-y-2">
+                            <p className="text-lg font-medium">Aucun franchisé trouvé</p>
+                            <div className="text-sm space-y-1">
+                              <p><strong>Session:</strong> {session ? '✅ Connecté' : '❌ Non connecté'}</p>
+                              <p><strong>Rôle:</strong> {session?.user?.role || 'Non défini'}</p>
+                              <p><strong>Email:</strong> {session?.user?.email || 'Non défini'}</p>
+                              <p><strong>Erreur d'auth:</strong> {authError || 'Aucune'}</p>
+                              <p className="mt-2">Vérifiez la console (F12) pour plus de détails</p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     {franchises.map((franchise) => (
                       <tr key={franchise.id} className="hover:bg-gray-50/70 dark:hover:bg-neutral-900/40">
                         <td className="px-4 py-3">

@@ -1,32 +1,58 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { 
   Bell, 
-  Search, 
   User, 
   LogOut, 
   Settings,
-  ChevronDown 
+  ChevronDown,
+  SearchIcon,
+  Moon,
+  Sun
 } from 'lucide-react'
 
 export function AdminHeader() {
   const { data: session } = useSession()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+    const darkMode = localStorage.getItem('darkMode') === 'true' || 
+                    (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    setIsDarkMode(darkMode)
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [])
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode
+    setIsDarkMode(newDarkMode)
+    localStorage.setItem('darkMode', newDarkMode.toString())
+    
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' })
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/70 dark:bg-neutral-900/50 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 shadow-[0_1px_0_0_rgba(0,0,0,0.02)] px-4 sm:px-6 py-3">
+    <header className="sticky top-0 z-30 bg-white/70 dark:bg-neutral-900/50 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 shadow-[0_1px_0_0_rgba(0,0,0,0.02)] px-4 sm:px-6 py-4.5">
       <div className="flex items-center justify-between gap-4">
         {/* Search */}
         <div className="flex-1 max-w-xl">
           <div className="relative group">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
             <input
               type="text"
               placeholder="Rechercher..."
@@ -37,6 +63,21 @@ export function AdminHeader() {
 
         {/* Right side */}
         <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Dark Mode Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleDarkMode}
+            className="rounded-xl hover:translate-y-[1px] transition-all duration-300"
+            aria-label={isDarkMode ? "Activer le mode clair" : "Activer le mode sombre"}
+          >
+            {isDarkMode ? (
+              <Sun className="h-5 w-5 transition-transform duration-300" />
+            ) : (
+              <Moon className="h-5 w-5 transition-transform duration-300" />
+            )}
+          </Button>
+
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative rounded-xl hover:translate-y-[1px] transition-transform">
             <Bell className="h-5 w-5" />

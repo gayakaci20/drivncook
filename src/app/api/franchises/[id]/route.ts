@@ -1,28 +1,34 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { 
-  withAuth, 
-  withErrorHandling, 
-  withValidation,
-  createSuccessResponse,
-  createErrorResponse
-} from '@/lib/api-utils'
-import { franchiseSchema } from '@/lib/validations'
+import { getServerSession } from 'next-auth'
+import { authOptions, canAccessFranchise } from '@/lib/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-interface RouteContext {
-  params: {
-    id: string
-  }
-}
+// GET /api/franchises/[id] - Récupérer un franchisé spécifique
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {    
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
 
-// GET /api/franchises/[id] - Récupérer un franchisé
-export const GET = withAuth(
-  withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
-    const { id } = context.params
+    const { id } = await params
 
-    const franchise = await prisma.franchise.findUnique({
-      where: { id },
+    // Vérifier les permissions avec la fonction utilitaire
+    if (!canAccessFranchise(session.user.role, session.user.franchiseId, id)) {
+      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
+    }
+
+    // Récupérer le franchisé avec toutes les relations
+    const franchise: any = await prisma.franchise.findUnique({
+      where: {
+        id: id
+      },
       include: {
         user: {
           select: {
@@ -32,8 +38,7 @@ export const GET = withAuth(
             lastName: true,
             phone: true,
             isActive: true,
-            createdAt: true,
-            updatedAt: true
+            createdAt: true
           }
         },
         vehicles: {
@@ -43,46 +48,51 @@ export const GET = withAuth(
             brand: true,
             model: true,
             year: true,
+            vin: true,
             status: true,
+            purchaseDate: true,
+            purchasePrice: true,
             currentMileage: true,
             lastInspectionDate: true,
-            nextInspectionDate: true
+            nextInspectionDate: true,
+            insuranceNumber: true,
+            insuranceExpiry: true
           }
         },
         orders: {
+          take: 5,
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
-            orderNumber: true,
             status: true,
-            orderDate: true,
-            totalAmount: true
-          },
-          orderBy: { orderDate: 'desc' },
-          take: 10
+            totalAmount: true,
+            requestedDeliveryDate: true,
+            createdAt: true
+          }
         },
         salesReports: {
+          take: 5,
+          orderBy: { reportDate: 'desc' },
           select: {
             id: true,
             reportDate: true,
             dailySales: true,
             transactionCount: true,
-            royaltyAmount: true,
-            paymentStatus: true
-          },
-          orderBy: { reportDate: 'desc' },
-          take: 10
+            averageTicket: true,
+            location: true
+          }
         },
         invoices: {
+          take: 5,
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
-            invoiceNumber: true,
-            issueDate: true,
-            dueDate: true,
             amount: true,
-            paymentStatus: true
-          },
-          orderBy: { issueDate: 'desc' },
-          take: 10
+            paymentStatus: true,
+            dueDate: true,
+            description: true,
+            createdAt: true
+          }
         },
         _count: {
           select: {
@@ -96,159 +106,124 @@ export const GET = withAuth(
     })
 
     if (!franchise) {
-      return createErrorResponse('Franchisé introuvable', 404)
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Franchisé non trouvé' 
+      }, { status: 404 })
     }
 
-    return createSuccessResponse(franchise)
-  }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN]
-)
-
-// PUT /api/franchises/[id] - Mettre à jour un franchisé
-export const PUT = withAuth(
-  withValidation(
-    franchiseSchema.partial(),
-    withErrorHandling(async (request: NextRequest, context: RouteContext, session: any, validatedData: any) => {
-      const { id } = context.params
-
-      // Vérifier si le franchisé existe
-      const existingFranchise = await prisma.franchise.findUnique({
-        where: { id },
-        include: { user: true }
-      })
-
-      if (!existingFranchise) {
-        return createErrorResponse('Franchisé introuvable', 404)
+    // Convertir les BigInt en nombres pour éviter les erreurs de sérialisation
+    const serializedFranchise = {
+      ...franchise,
+      entryFee: Number(franchise.entryFee),
+      royaltyRate: Number(franchise.royaltyRate),
+      vehicles: franchise.vehicles.map((vehicle: any) => ({
+        ...vehicle,
+        year: Number(vehicle.year),
+        purchasePrice: Number(vehicle.purchasePrice),
+        currentMileage: vehicle.currentMileage ? Number(vehicle.currentMileage) : null
+      })),
+      orders: franchise.orders.map((order: any) => ({
+        ...order,
+        totalAmount: Number(order.totalAmount)
+      })),
+      salesReports: franchise.salesReports.map((report: any) => ({
+        ...report,
+        dailySales: Number(report.dailySales),
+        transactionCount: Number(report.transactionCount),
+        averageTicket: Number(report.averageTicket)
+      })),
+      invoices: franchise.invoices.map((invoice: any) => ({
+        ...invoice,
+        amount: Number(invoice.amount)
+      })),
+      _count: {
+        orders: Number(franchise._count.orders),
+        salesReports: Number(franchise._count.salesReports),
+        invoices: Number(franchise._count.invoices),
+        vehicles: Number(franchise._count.vehicles)
       }
+    }
 
-      // Si on change le SIRET, vérifier qu'il n'existe pas déjà
-      if (validatedData.siretNumber && validatedData.siretNumber !== existingFranchise.siretNumber) {
-        const existingSiret = await prisma.franchise.findUnique({
-          where: { siretNumber: validatedData.siretNumber }
-        })
-
-        if (existingSiret) {
-          return createErrorResponse('Ce numéro SIRET est déjà utilisé', 400)
-        }
-      }
-
-      // Préparer les données de mise à jour
-      const updateData: any = { ...validatedData }
-      
-      if (updateData.entryFeeDate) {
-        updateData.entryFeeDate = new Date(updateData.entryFeeDate)
-      }
-      if (updateData.contractStartDate) {
-        updateData.contractStartDate = new Date(updateData.contractStartDate)
-      }
-      if (updateData.contractEndDate) {
-        updateData.contractEndDate = new Date(updateData.contractEndDate)
-      }
-
-      // Mettre à jour le franchisé
-      const updatedFranchise = await prisma.franchise.update({
-        where: { id },
-        data: updateData,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              isActive: true,
-              createdAt: true,
-              updatedAt: true
-            }
-          }
-        }
-      })
-
-      // Créer un log d'audit
-      await prisma.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          tableName: 'franchises',
-          recordId: id,
-          oldValues: JSON.stringify(existingFranchise),
-          newValues: JSON.stringify(updatedFranchise),
-          userId: session.user.id
-        }
-      })
-
-      return createSuccessResponse(updatedFranchise, 'Franchisé mis à jour avec succès')
+    return NextResponse.json({
+      success: true,
+      data: serializedFranchise
     })
-  ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN]
-)
+
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur serveur interne'
+    }, { status: 500 })
+  }
+}
 
 // DELETE /api/franchises/[id] - Supprimer un franchisé
-export const DELETE = withAuth(
-  withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
-    const { id } = context.params
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
 
-    // Vérifier si le franchisé existe
-    const existingFranchise = await prisma.franchise.findUnique({
+    // Seuls les SUPER_ADMIN peuvent supprimer
+    if (session.user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
+    }
+
+    const { id } = await params
+
+    // Vérifier que le franchisé existe
+    const franchise = await prisma.franchise.findUnique({
       where: { id },
-      include: {
-        user: true,
-        vehicles: true,
-        orders: true,
-        salesReports: true,
-        invoices: true
-      }
+      include: { user: true }
     })
 
-    if (!existingFranchise) {
-      return createErrorResponse('Franchisé introuvable', 404)
+    if (!franchise) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Franchisé non trouvé' 
+      }, { status: 404 })
     }
 
-    // Vérifier s'il y a des contraintes qui empêchent la suppression
-    if (existingFranchise.vehicles.length > 0) {
-      return createErrorResponse('Impossible de supprimer : des véhicules sont encore assignés à ce franchisé', 400)
-    }
-
-    if (existingFranchise.orders.length > 0) {
-      return createErrorResponse('Impossible de supprimer : ce franchisé a des commandes en cours', 400)
-    }
-
-    // Supprimer en cascade (soft delete pour l'utilisateur)
-    await prisma.$transaction(async (tx: any) => {
-      // Supprimer les rapports de vente
-      await tx.salesReport.deleteMany({
-        where: { franchiseId: id }
-      })
-
-      // Supprimer les factures
-      await tx.invoice.deleteMany({
-        where: { franchiseId: id }
-      })
-
-      // Supprimer le franchisé
+    // Supprimer le franchisé et l'utilisateur associé dans une transaction
+    await prisma.$transaction(async (tx) => {
+      // Supprimer le franchisé (cela supprimera automatiquement les relations)
       await tx.franchise.delete({
         where: { id }
       })
 
-      // Désactiver l'utilisateur au lieu de le supprimer
-      await tx.user.update({
-        where: { id: existingFranchise.userId },
-        data: { isActive: false }
+      // Supprimer l'utilisateur associé
+      await tx.user.delete({
+        where: { id: franchise.userId }
+      })
+
+      // Créer un log d'audit
+      await tx.auditLog.create({
+        data: {
+          action: 'DELETE',
+          tableName: 'franchises',
+          recordId: id,
+          oldValues: JSON.stringify(franchise),
+          userId: session.user.id
+        }
       })
     })
 
-    // Créer un log d'audit
-    await prisma.auditLog.create({
-      data: {
-        action: 'DELETE',
-        tableName: 'franchises',
-        recordId: id,
-        oldValues: JSON.stringify(existingFranchise),
-        userId: session.user.id
-      }
+    return NextResponse.json({
+      success: true,
+      message: 'Franchisé supprimé avec succès'
     })
 
-    return createSuccessResponse(null, 'Franchisé supprimé avec succès')
-  }),
-  [UserRole.SUPER_ADMIN]
-)
+  } catch (error) {
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur serveur interne'
+    }, { status: 500 })
+  }
+}

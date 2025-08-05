@@ -52,16 +52,37 @@ export default function FranchiseVehiclePage() {
   useEffect(() => {
     if (session?.user?.franchiseId) {
       fetchVehicle()
+    } else if (session?.user && !session.user.franchiseId) {
+      // L'utilisateur est connecté mais n'a pas de franchise associée
+      setLoading(false)
     }
   }, [session])
 
   const fetchVehicle = async () => {
     try {
-      const response = await fetch(`/api/vehicles?franchiseId=${session?.user?.franchiseId}`)
+      const response = await fetch('/api/vehicles')
+      
+      if (!response.ok) {
+        console.error('Erreur HTTP:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Contenu de l\'erreur:', errorText)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Réponse non-JSON reçue:', contentType)
+        const text = await response.text()
+        console.error('Contenu de la réponse:', text)
+        return
+      }
+
       const data = await response.json()
       
-      if (data.success && data.data.data.length > 0) {
+      if (data.success && data.data && data.data.data && data.data.data.length > 0) {
         setVehicle(data.data.data[0]) // Premier véhicule trouvé
+      } else if (!data.success) {
+        console.error('Erreur API véhicules:', data.error)
       }
     } catch (error) {
       console.error('Erreur lors du chargement du véhicule:', error)
@@ -163,8 +184,15 @@ export default function FranchiseVehiclePage() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-neutral-100 mb-2">
           Aucun véhicule assigné
         </h3>
-        <p className="text-gray-600 dark:text-neutral-400">
-          Contactez votre administrateur pour l'attribution d'un véhicule
+        <p className="text-gray-600 dark:text-neutral-400 mb-4">
+          {session?.user?.franchiseId 
+            ? "Aucun véhicule n'est actuellement assigné à votre franchise" 
+            : "Aucune franchise associée à votre compte"}
+        </p>
+        <p className="text-sm text-gray-500 dark:text-neutral-500">
+          {session?.user?.franchiseId 
+            ? "Contactez votre administrateur pour l'attribution d'un véhicule"
+            : "Veuillez contacter l'administrateur pour associer une franchise à votre compte"}
         </p>
       </div>
     )

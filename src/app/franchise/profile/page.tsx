@@ -60,6 +60,9 @@ export default function FranchiseProfilePage() {
   useEffect(() => {
     if (session?.user?.franchiseId) {
       fetchProfile()
+    } else if (session?.user && !session.user.franchiseId) {
+      // L'utilisateur est connecté mais n'a pas de franchise associée
+      setLoading(false)
     }
   }, [session])
 
@@ -70,9 +73,13 @@ export default function FranchiseProfilePage() {
       
       if (data.success) {
         setProfile(data.data)
+      } else {
+        console.error('Erreur API:', data.error)
+        // Vous pouvez ajouter ici une notification toast ou un état d'erreur
       }
     } catch (error) {
       console.error('Erreur lors du chargement du profil:', error)
+      // Vous pouvez ajouter ici une notification toast ou un état d'erreur
     } finally {
       setLoading(false)
     }
@@ -130,9 +137,16 @@ export default function FranchiseProfilePage() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-neutral-100 mb-2">
           Profil introuvable
         </h3>
-        <p className="text-gray-600 dark:text-neutral-400">
-          Impossible de charger les informations de votre franchise
+        <p className="text-gray-600 dark:text-neutral-400 mb-4">
+          {session?.user?.franchiseId 
+            ? "Impossible de charger les informations de votre franchise" 
+            : "Aucune franchise associée à votre compte"}
         </p>
+        {!session?.user?.franchiseId && (
+          <p className="text-sm text-gray-500 dark:text-neutral-500">
+            Veuillez contacter l'administrateur pour associer une franchise à votre compte.
+          </p>
+        )}
       </div>
     )
   }

@@ -1,91 +1,40 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useDarkMode } from '@/hooks/use-dark-mode'
 import { 
   Bell, 
-  Search, 
   User, 
   LogOut, 
   Settings,
   ChevronDown,
-  Truck,
-  Building2,
-  MapPin,
-  Clock
+  SearchIcon,
+  Moon,
+  Sun
 } from 'lucide-react'
-
-interface FranchiseInfo {
-  businessName: string
-  status: string
-  city: string
-  vehicleCount: number
-  contractEndDate: string | null
-}
 
 export function FranchiseHeader() {
   const { data: session } = useSession()
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [franchiseInfo, setFranchiseInfo] = useState<FranchiseInfo | null>(null)
   const [notifications] = useState(3) // Simulé pour la démo
-
-  useEffect(() => {
-    if (session?.user?.franchiseId) {
-      fetchFranchiseInfo()
-    }
-  }, [session?.user?.franchiseId])
-
-  const fetchFranchiseInfo = async () => {
-    try {
-      if (!session?.user?.franchiseId) return
-      
-      const response = await fetch(`/api/franchises/${session.user.franchiseId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setFranchiseInfo({
-          businessName: data.data.businessName,
-          status: data.data.status,
-          city: data.data.city,
-          vehicleCount: data.data.vehicles?.length || 0,
-          contractEndDate: data.data.contractEndDate
-        })
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des infos franchise:', error)
-    }
-  }
+  const { isDarkMode, toggleDarkMode } = useDarkMode()
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' })
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'ACTIVE': { label: 'Actif', variant: 'default' as const },
-      'PENDING': { label: 'En attente', variant: 'secondary' as const },
-      'SUSPENDED': { label: 'Suspendu', variant: 'destructive' as const },
-      'TERMINATED': { label: 'Terminé', variant: 'destructive' as const }
-    }
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: 'outline' as const }
-    return <Badge variant={config.variant} className="text-xs">{config.label}</Badge>
-  }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Non défini'
-    return new Date(dateString).toLocaleDateString('fr-FR')
-  }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/70 dark:bg-neutral-900/50 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 shadow-[0_1px_0_0_rgba(0,0,0,0.02)] px-4 sm:px-6 py-3">
+    <header className="sticky top-0 z-30 bg-white/70 dark:bg-neutral-900/50 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 shadow-[0_1px_0_0_rgba(0,0,0,0.02)] px-4 sm:px-6 py-4.5">
       <div className="flex items-center justify-between">
         {/* Informations franchise */}
         <div className="flex items-center gap-6">
           {/* Search */}
           <div className="relative max-w-sm group">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
             <input
               type="text"
               placeholder="Rechercher..."
@@ -93,41 +42,26 @@ export function FranchiseHeader() {
             />
           </div>
 
-          {/* Franchise info */}
-          {franchiseInfo && (
-            <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-50/70 dark:bg-neutral-800/40 rounded-xl backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-900 dark:text-neutral-100">{franchiseInfo.businessName}</span>
-                {getStatusBadge(franchiseInfo.status)}
-              </div>
-              
-              <div className="w-px h-6 bg-gray-300"></div>
-              
-              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-neutral-300">
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  <span>{franchiseInfo.city}</span>
-                </div>
-                
-                <div className="flex items-center gap-1">
-                  <Truck className="h-3 w-3" />
-                  <span>{franchiseInfo.vehicleCount} véhicule{franchiseInfo.vehicleCount > 1 ? 's' : ''}</span>
-                </div>
-                
-                {franchiseInfo.contractEndDate && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>Contrat jusqu&apos;au {formatDate(franchiseInfo.contractEndDate)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+
         </div>
 
         {/* Right side */}
         <div className="flex items-center gap-4">
+          {/* Dark Mode Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleDarkMode}
+            className="rounded-xl hover:translate-y-[1px] transition-all duration-300"
+            aria-label={isDarkMode ? "Activer le mode clair" : "Activer le mode sombre"}
+          >
+            {isDarkMode ? (
+              <Sun className="h-5 w-5 transition-transform duration-300" />
+            ) : (
+              <Moon className="h-5 w-5 transition-transform duration-300" />
+            )}
+          </Button>
+
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative rounded-xl hover:translate-y-[1px] transition-transform">
             <Bell className="h-5 w-5" />
@@ -193,18 +127,7 @@ export function FranchiseHeader() {
         </div>
       </div>
 
-      {/* Mobile franchise info */}
-      {franchiseInfo && (
-        <div className="md:hidden mt-4 p-3 bg-gray-50/70 dark:bg-neutral-800/40 rounded-xl backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium text-sm text-gray-900 dark:text-neutral-100">{franchiseInfo.businessName}</div>
-              <div className="text-xs text-gray-600 dark:text-neutral-300">{franchiseInfo.city} • {franchiseInfo.vehicleCount} véhicule{franchiseInfo.vehicleCount > 1 ? 's' : ''}</div>
-            </div>
-            {getStatusBadge(franchiseInfo.status)}
-          </div>
-        </div>
-      )}
+
     </header>
   )
 }

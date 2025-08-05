@@ -62,6 +62,11 @@ enum MaintenanceStatus {
   CANCELLED
 }
 
+enum PurchaseType {
+  PURCHASE
+  RETURN
+}
+
 // Modèles
 
 model User {
@@ -98,6 +103,11 @@ model Franchise {
   region          String
   contactEmail    String
   contactPhone    String
+  personalPhone   String?         // Téléphone personnel du franchisé
+  personalEmail   String?         // Email personnel du franchisé
+  kbisDocument    String?         // Chemin vers le document KBIS
+  idCardDocument  String?         // Chemin vers la carte d'identité
+  drivingLicense  String?         // Numéro de permis de conduire
   status          FranchiseStatus @default(PENDING)
   entryFee        Decimal         @default(50000.00)
   entryFeePaid    Boolean         @default(false)
@@ -116,6 +126,8 @@ model Franchise {
   orders          Order[]
   salesReports    SalesReport[]
   invoices        Invoice[]
+  purchaseHistory FranchisePurchaseHistory[]
+  clientPurchases ClientPurchase[]
 
   @@map("franchises")
 }
@@ -129,6 +141,7 @@ model Warehouse {
   region      String
   phone       String?
   email       String?
+  advisor     String? // Conseiller de l'entrepôt
   capacity    Int     // Capacité de stockage
   isActive    Boolean @default(true)
   createdAt   DateTime @default(now())
@@ -158,10 +171,11 @@ model ProductCategory {
 model Product {
   id          String  @id @default(cuid())
   name        String
+  title       String? // Titre de l'article (différent du nom)
   description String?
   sku         String  @unique
   barcode     String?
-  unitPrice   Decimal
+  unitPrice   Decimal // Prix hors taxe
   unit        String  // kg, litre, pièce, etc.
   minStock    Int     @default(0)
   maxStock    Int?
@@ -175,6 +189,8 @@ model Product {
   category    ProductCategory @relation(fields: [categoryId], references: [id])
   stocks      Stock[]
   orderItems  OrderItem[]
+  franchisePurchaseHistory FranchisePurchaseHistory[]
+  clientPurchases ClientPurchase[]
 
   @@map("products")
 }
@@ -201,18 +217,22 @@ model Stock {
 model Vehicle {
   id            String        @id @default(cuid())
   licensePlate  String        @unique
-  brand         String
-  model         String
-  year          Int
+  brand         String        // Marque
+  model         String        // Modèle
+  year          Int           // Age camion
   vin           String        @unique
   status        VehicleStatus @default(AVAILABLE)
   purchaseDate  DateTime
   purchasePrice Decimal
   currentMileage Int?
-  lastInspectionDate DateTime?
-  nextInspectionDate DateTime?
-  insuranceNumber    String?
-  insuranceExpiry    DateTime?
+  lastRevisionDate    DateTime?  // Date dernière révision
+  revisionInterval    Int?       // Délais de révision (en jours)
+  nextRevisionDate    DateTime?  // Prochaine révision calculée
+  lastInspectionDate  DateTime?  // CTRL technique
+  nextInspectionDate  DateTime?  // Prochain CTRL technique
+  insuranceNumber     String?
+  insuranceExpiry     DateTime?
+  assignmentDate      DateTime?  // Date rattachement à la franchise
   latitude      Float?
   longitude     Float?
   isActive      Boolean       @default(true)
@@ -220,7 +240,7 @@ model Vehicle {
   updatedAt     DateTime      @updatedAt
 
   // Relations
-  franchiseId   String?
+  franchiseId   String?       // ID rattachement client
   franchise     Franchise?    @relation(fields: [franchiseId], references: [id])
   maintenances  Maintenance[]
 
@@ -337,6 +357,45 @@ model Invoice {
   franchise     Franchise     @relation(fields: [franchiseId], references: [id])
 
   @@map("invoices")
+}
+
+// Historique des achats des franchises
+model FranchisePurchaseHistory {
+  id            String       @id @default(cuid())
+  quantity      Int          // QTE
+  purchasePrice Decimal      // PRIX ACHAT
+  salePrice     Decimal      // PRIX REVENTE
+  purchaseDate  DateTime     @default(now()) // DATE ACHAT
+  purchaseType  PurchaseType @default(PURCHASE) // TYPE ACHAT : ACHAT / RETOUR
+  expirationDate DateTime?   // DATE EXPIRATION
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  franchiseId   String       // ID CLIENT
+  franchise     Franchise    @relation(fields: [franchiseId], references: [id])
+  productId     String       // ID ARTICLE
+  product       Product      @relation(fields: [productId], references: [id])
+
+  @@map("franchise_purchase_history")
+}
+
+// Base de données des achats clients (front office)
+model ClientPurchase {
+  id           String   @id @default(cuid())
+  quantity     Int      // QTE
+  price        Decimal  // PRIX
+  purchaseDate DateTime @default(now()) // DATE ACHAT
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  franchiseId  String   // Franchise qui a vendu
+  franchise    Franchise @relation(fields: [franchiseId], references: [id])
+  productId    String   // ID ARTICLE
+  product      Product   @relation(fields: [productId], references: [id])
+
+  @@map("client_purchases")
 }
 
 model AuditLog {

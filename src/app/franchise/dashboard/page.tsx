@@ -84,10 +84,38 @@ export default function FranchiseDashboardPage() {
 
   const fetchStats = async () => {
     try {
+      console.log('Fetching dashboard stats for user:', session?.user?.email, 'franchiseId:', session?.user?.franchiseId)
+      
       const response = await fetch('/api/dashboard/stats?period=30')
-      if (response.ok) {
-        const data = await response.json()
+      
+      console.log('Dashboard response status:', response.status)
+      
+      if (!response.ok) {
+        console.error('Dashboard HTTP error:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Dashboard error content:', errorText)
+        return
+      }
+
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Dashboard non-JSON response:', contentType)
+        const text = await response.text()
+        console.error('Dashboard response content:', text)
+        return
+      }
+
+      const data = await response.json()
+      console.log('Dashboard API Response:', data)
+      
+      if (data.success) {
         setStats(data.data)
+        console.log('Dashboard stats set:', data.data)
+        if (data.data.vehicles) {
+          console.log('Vehicles in dashboard:', data.data.vehicles)
+        }
+      } else {
+        console.error('Dashboard API error:', data.error)
       }
     } catch (error) {
       console.error('Erreur lors du chargement des statistiques:', error)
@@ -313,33 +341,50 @@ export default function FranchiseDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {stats.vehicles.map((vehicle) => (
-                  <div key={vehicle.id} className="flex items-center justify-between p-4 border rounded-xl">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <Truck className="h-6 w-6 text-blue-600" />
+                {stats.vehicles && stats.vehicles.length > 0 ? (
+                  stats.vehicles.map((vehicle) => (
+                    <div key={vehicle.id} className="flex items-center justify-between p-4 border rounded-xl">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                          <Truck className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{vehicle.brand} {vehicle.model}</div>
+                          <div className="text-sm text-muted-foreground">{vehicle.licensePlate}</div>
+                          {vehicle.currentMileage && (
+                            <div className="text-xs text-muted-foreground">
+                              {vehicle.currentMileage.toLocaleString()} km
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium">{vehicle.brand} {vehicle.model}</div>
-                        <div className="text-sm text-muted-foreground">{vehicle.licensePlate}</div>
-                        {vehicle.currentMileage && (
+                      <div className="text-right space-y-2">
+                        {getStatusBadge(vehicle.status)}
+                        {vehicle.nextInspectionDate && (
                           <div className="text-xs text-muted-foreground">
-                            {vehicle.currentMileage.toLocaleString()} km
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            CT: {formatDate(vehicle.nextInspectionDate)}
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="text-right space-y-2">
-                      {getStatusBadge(vehicle.status)}
-                      {vehicle.nextInspectionDate && (
-                        <div className="text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          CT: {formatDate(vehicle.nextInspectionDate)}
-                        </div>
-                      )}
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-neutral-100 mb-2">
+                      Aucun véhicule assigné
+                    </h3>
+                    <p className="text-gray-600 dark:text-neutral-400">
+                      {session?.user?.franchiseId 
+                        ? "Aucun véhicule n'est actuellement assigné à votre franchise" 
+                        : "Aucune franchise associée à votre compte"}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-neutral-500 mt-2">
+                      Contactez votre administrateur pour l'attribution d'un véhicule
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>

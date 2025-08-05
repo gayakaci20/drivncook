@@ -2,7 +2,7 @@
 
 import Navbar from '../components/navbar'
 import Footer from '../components/footer'
-import { ArrowRightIcon, Building2Icon, SmileIcon, ShoppingCartIcon, TruckIcon, ShieldIcon, CircleHelpIcon } from 'lucide-react'
+import { ArrowRightIcon, ShoppingCartIcon, TruckIcon, ShieldIcon, CircleHelpIcon } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -32,19 +32,19 @@ export default function Home() {
                 Votre espace sécurisé pour gérer votre franchise : suivi des commandes, gestion du parc de camions, approvisionnement en stock, consultation des ventes et accès à tous les services dédiés aux franchisés.
               </p>
 
-              <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <a
-                  className="inline-flex items-center justify-center gap-x-2 rounded-lg bg-red-500/90 px-5 py-3 text-sm font-semibold text-white shadow-sm ring-1 ring-inset ring-red-600/20 transition hover:bg-red-600/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
                   href="/register"
+                  className="group inline-flex items-center justify-center gap-x-2 rounded-xl bg-red-500/90 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(255,255,255,0.15)] ring-1 ring-inset ring-white/60 transition duration-200 hover:-translate-y-0.5 hover:bg-red-600 hover:shadow-[0_12px_40px_rgba(255,255,255,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500/60"
                 >
-                  Commencer avec nous
-                  <ArrowRightIcon className="size-4" />
+                  Devenir franchisé
+                  <ArrowRightIcon className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
                 </a>
                 <a
-                  className="inline-flex items-center justify-center gap-x-2 rounded-lg border border-gray-200/70 bg-white/60 backdrop-blur px-5 py-3 text-sm font-medium text-gray-800 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                  href="/login"
+                  href="/contact"
+                  className="inline-flex items-center justify-center gap-x-2 rounded-xl border border-gray-300/60 dark:border-white/30 bg-gray-100/80 dark:bg-white/5 px-5 py-3 text-sm font-semibold text-gray-800 dark:text-white backdrop-blur-sm transition duration-200 hover:-translate-y-0.5 hover:bg-gray-200/80 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/70 dark:focus-visible:ring-white/70"
                 >
-                  Se connecter
+                  Nous contacter
                 </a>
               </div>
 
@@ -56,41 +56,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Section Statistiques */}
-      <section className="max-w-[85rem] px-4 py-12 sm:px-6 lg:px-8 lg:py-16 mx-auto">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {[
-            { label: 'Franchises actives', value: '150+', icon: (
-              <Building2Icon className="size-5" />
-            )},
-            { label: 'Camions gérés', value: '500+', icon: (
-              <TruckIcon className="size-5" />
-            )},
-            { label: 'Commandes traitées', value: '10k+/mois', icon: (
-              <ShoppingCartIcon className="size-5" />
-            )},
-            { label: 'Satisfaction client', value: '98%', icon: (
-              <SmileIcon className="size-5" />
-            )},
-          ].map((stat) => (
-            <div key={stat.label} className="group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md dark:bg-neutral-900 dark:border-neutral-800">
-              <div className="absolute inset-0 -z-10 bg-gradient-to-tr from-red-500/0 via-red-500/0 to-red-500/0 opacity-0 transition group-hover:opacity-10" />
-              <div className="p-5 md:p-6">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-neutral-400">
-                  <span className="inline-flex items-center justify-center rounded-md bg-red-50 text-red-700 dark:bg-neutral-800 dark:text-red-300 size-8 border border-red-100/60 dark:border-neutral-700">
-                    {stat.icon}
-                  </span>
-                  <p className="text-xs uppercase tracking-wide">{stat.label}</p>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <h3 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-neutral-100">{stat.value}</h3>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -182,24 +147,60 @@ export default function Home() {
       </section>
 
       {/* Section CTA */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-red-600 to-rose-600">
-        <div className="absolute inset-0 opacity-30 mix-blend-overlay bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent" />
-        <div className="relative max-w-[85rem] px-4 py-12 sm:px-6 lg:px-8 lg:py-16 mx-auto">
-          <div className="max-w-2xl text-center mx-auto">
-            <h2 className="text-2xl font-bold md:text-4xl md:leading-tight text-white">
+      <section className="relative overflow-hidden bg-gradient-to-br from-rose-600 via-red-600 to-rose-700">
+        <div className="pointer-events-none absolute -inset-20 opacity-40">
+          <div className="absolute left-1/2 top-[-10%] h-[40rem] w-[40rem] -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute right-[-10%] bottom-[-20%] h-[28rem] w-[28rem] rounded-full bg-white/5 blur-3xl" />
+        </div>
+
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=%27http://www.w3.org/2000/svg%27 width=%27160%27 height=%27160%27 viewBox=%270 0 160 160%27><filter id=%27n%27 x=%270%27 y=%270%27><feTurbulence type=%27fractalNoise%27 baseFrequency=%270.7%27 numOctaves=%274%27 stitchTiles=%27stitch%27/></filter><rect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.35%27/></svg>')" }} />
+          <svg className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 h-[24rem] opacity-20" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g transform="translate(300,300)">
+              <path d="M120,-146.8C158.2,-116.4,192.2,-79.8,205.2,-36.6C218.2,6.5,210.3,56.1,187.1,98.9C163.9,141.6,125.5,177.5,82,194.1C38.5,210.7,-10.2,208,-53.6,192.2C-97,176.4,-135.1,147.4,-162.1,111.7C-189.1,76.1,-204.9,33.8,-205.2,-9.7C-205.6,-53.3,-190.6,-96.9,-163.4,-127.6C-136.2,-158.2,-96.8,-175.8,-57.1,-197.7C-17.5,-219.6,22.4,-245.8,60.1,-238.7C97.7,-231.6,133.2,-191.2,120,-146.8Z" fill="url(#g1)" />
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="white" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+                </linearGradient>
+              </defs>
+            </g>
+          </svg>
+        <div className="relative mx-auto max-w-[85rem] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+              Rejoignez un réseau qui performe
+            </div>
+
+            <h2 className="text-3xl font-extrabold tracking-tight text-white md:text-5xl md:leading-tight drop-shadow-sm">
               Prêt à rejoindre notre réseau ?
             </h2>
-            <p className="mt-2 md:text-lg text-white/85">
-              Démarrez votre franchise avec DRIV'N COOK et bénéficiez de tous nos outils de gestion.
+
+            <p className="mx-auto mt-3 max-w-xl text-base text-white/85 md:mt-4 md:text-lg">
+              Démarrez votre franchise avec DRIV'N COOK et profitez d’outils de gestion complets,
+              d’un accompagnement dédié et d’une marque forte.
             </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-              <a className="inline-flex items-center justify-center gap-x-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-red-700 shadow-sm ring-1 ring-inset ring-white/40 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" href="/register">
+
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                href="/register"
+                className="group inline-flex items-center justify-center gap-x-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-red-700 shadow-[0_8px_30px_rgba(255,255,255,0.15)] ring-1 ring-inset ring-white/60 transition duration-200 hover:-translate-y-0.5 hover:bg-white/95 hover:shadow-[0_12px_40px_rgba(255,255,255,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
+              >
                 Devenir franchisé
+                <ArrowRightIcon className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
               </a>
-              <a className="inline-flex items-center justify-center gap-x-2 rounded-lg border border-white/40 text-white px-5 py-3 text-sm font-medium transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60" href="/contact">
+
+              <a
+                href="/contact"
+                className="inline-flex items-center justify-center gap-x-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-sm transition duration-200 hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              >
                 Nous contacter
               </a>
             </div>
+
+            <p className="mt-4 text-xs text-white/60">
+              Déjà partenaire ? <a className="underline decoration-white/40 underline-offset-4 hover:decoration-white/80" href="/login">Accédez à votre espace</a>
+            </p>
           </div>
         </div>
       </section>

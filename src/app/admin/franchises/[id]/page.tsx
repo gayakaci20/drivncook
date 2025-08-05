@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { Button } from '@/src/components/ui/button'
@@ -99,23 +99,24 @@ interface FranchiseDetail {
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function FranchiseDetailPage({ params }: PageProps) {
   const router = useRouter()
+  const resolvedParams = use(params)
   const [franchise, setFranchise] = useState<FranchiseDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchFranchiseDetail()
-  }, [params.id])
+  }, [resolvedParams.id])
 
   const fetchFranchiseDetail = async () => {
     try {
-      const response = await fetch(`/api/franchises/${params.id}`)
+      const response = await fetch(`/api/franchises/${resolvedParams.id}`)
       if (response.ok) {
         const data = await response.json()
         setFranchise(data.data)
@@ -133,7 +134,7 @@ export default function FranchiseDetailPage({ params }: PageProps) {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce franchisé ? Cette action est irréversible.')) return
 
     try {
-      const response = await fetch(`/api/franchises/${params.id}`, {
+      const response = await fetch(`/api/franchises/${resolvedParams.id}`, {
         method: 'DELETE'
       })
 

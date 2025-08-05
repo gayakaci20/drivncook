@@ -1,5 +1,7 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { 
   withAuth, 
   withErrorHandling, 
@@ -13,8 +15,21 @@ import { vehicleSchema } from '@/lib/validations'
 import { UserRole } from '@/types/prisma-enums'
 
 // GET /api/vehicles - Lister les véhicules
-export const GET = withAuth(
-  withErrorHandling(async (request: NextRequest, context: any, session: any) => {
+export async function GET(request: NextRequest) {
+  try {
+    // Vérifier l'authentification
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
+
+    // Vérifier les permissions
+    const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'FRANCHISE_MANAGER', 'FRANCHISEE']
+    if (!allowedRoles.includes(session.user.role)) {
+      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const { page, limit, sortBy, sortOrder } = parsePaginationParams(searchParams)
     const search = searchParams.get('search') || ''
@@ -37,7 +52,17 @@ export const GET = withAuth(
       where.status = status
     }
 
-    if (franchiseId) {
+    // Gestion des permissions pour les franchisés
+    if (session.user.role === 'FRANCHISEE') {
+      // Les franchisés ne peuvent voir que leurs propres véhicules
+      if (session.user.franchiseId) {
+        where.franchiseId = session.user.franchiseId
+      } else {
+        // Si le franchisé n'a pas de franchise associée, ne retourner aucun véhicule
+        where.franchiseId = 'non-existent-id'
+      }
+    } else if (franchiseId) {
+      // Pour les admins et managers, respecter le filtre franchiseId s'il est fourni
       where.franchiseId = franchiseId
     }
 
@@ -62,6 +87,7 @@ export const GET = withAuth(
               id: true,
               type: true,
               status: true,
+              title: true,
               scheduledDate: true,
               completedDate: true,
               cost: true
@@ -83,10 +109,21 @@ export const GET = withAuth(
     ])
 
     const response = createPaginationResponse(vehicles, total || 0, page || 1, limit || 10)
-    return createSuccessResponse(response)
-  }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER]
-)
+    return NextResponse.json({
+      success: true,
+      data: response
+    })
+
+  } catch (error) {
+    console.error('Erreur API vehicles:', error)
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur serveur interne'
+    }, { status: 500 })
+  }
+}
+
+
 
 // POST /api/vehicles - Créer un nouveau véhicule
 export const POST = withAuth(
