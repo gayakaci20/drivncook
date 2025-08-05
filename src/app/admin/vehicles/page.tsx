@@ -26,6 +26,7 @@ import {
   Fuel,
   Settings
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface Vehicle {
   id: string
@@ -338,16 +339,14 @@ export default function AdminVehiclesPage() {
         <TabsContent value="list" className="space-y-4">
           <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-hidden">
+                <table className="w-full table-fixed">
                   <thead className="border-b bg-gray-50/70 dark:bg-neutral-900/40">
                     <tr>
-                      <th className="px-4 py-3 text-left">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
-                          onChange={(e) => {
-                            if (e.target.checked) {
+                      <th className="w-12 px-2 py-3 text-left">
+                        <Checkbox
+                          onCheckedChange={(checked) => {
+                            if (checked) {
                               setSelectedVehicles(vehicles.map(v => v.id))
                             } else {
                               setSelectedVehicles([])
@@ -355,13 +354,13 @@ export default function AdminVehiclesPage() {
                           }}
                         />
                       </th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Véhicule</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Franchisé</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Statut</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Kilométrage</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Contrôles</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Alertes</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Actions</th>
+                      <th className="w-1/4 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Véhicule</th>
+                      <th className="w-1/6 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden lg:table-cell">Franchisé</th>
+                      <th className="w-1/8 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Statut</th>
+                      <th className="w-1/8 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden md:table-cell">Kilométrage</th>
+                      <th className="w-1/6 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden xl:table-cell">Contrôles</th>
+                      <th className="w-1/8 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden lg:table-cell">Alertes</th>
+                      <th className="w-32 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -370,13 +369,11 @@ export default function AdminVehiclesPage() {
                       
                       return (
                         <tr key={vehicle.id} className="hover:bg-gray-50/70 dark:hover:bg-neutral-900/40">
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300"
+                          <td className="px-2 py-3">
+                            <Checkbox
                               checked={selectedVehicles.includes(vehicle.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
+                              onCheckedChange={(checked) => {
+                                if (checked) {
                                   setSelectedVehicles([...selectedVehicles, vehicle.id])
                                 } else {
                                   setSelectedVehicles(selectedVehicles.filter(id => id !== vehicle.id))
@@ -384,31 +381,51 @@ export default function AdminVehiclesPage() {
                               }}
                             />
                           </td>
-                          <td className="px-4 py-3">
-                            <div>
-                              <div className="font-medium text-gray-900 dark:text-neutral-100">
+                          <td className="px-3 py-3">
+                            <div className="truncate">
+                              <div className="font-medium text-gray-900 dark:text-neutral-100 truncate">
                                 {vehicle.brand} {vehicle.model} ({vehicle.year})
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-neutral-400 font-mono">{vehicle.licensePlate}</div>
-                              <div className="text-sm text-gray-500 dark:text-neutral-400">VIN: {vehicle.vin}</div>
+                              <div className="text-sm text-gray-500 dark:text-neutral-400 font-mono truncate">{vehicle.licensePlate}</div>
+                              <div className="text-sm text-gray-500 dark:text-neutral-400 lg:hidden truncate">
+                                {vehicle.franchise ? `${vehicle.franchise.user.firstName} ${vehicle.franchise.user.lastName}` : 'Non assigné'}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-neutral-400 md:hidden">
+                                {vehicle.currentMileage ? `${vehicle.currentMileage.toLocaleString()} km` : 'Km non renseigné'}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-3 hidden lg:table-cell">
                             {vehicle.franchise ? (
-                              <div>
-                                <div className="font-medium text-gray-900 dark:text-neutral-100">
+                              <div className="truncate">
+                                <div className="font-medium text-gray-900 dark:text-neutral-100 truncate">
                                   {vehicle.franchise.user.firstName} {vehicle.franchise.user.lastName}
                                 </div>
-                                <div className="text-sm text-gray-500 dark:text-neutral-400">{vehicle.franchise.businessName}</div>
+                                <div className="text-sm text-gray-500 dark:text-neutral-400 truncate">{vehicle.franchise.businessName}</div>
                               </div>
                             ) : (
                               <div className="text-sm text-gray-500 dark:text-neutral-400 italic">Non assigné</div>
                             )}
                           </td>
-                          <td className="px-4 py-3">
-                            {getStatusBadge(vehicle.status)}
+                          <td className="px-3 py-3">
+                            <div className="space-y-1">
+                              {getStatusBadge(vehicle.status)}
+                              <div className="lg:hidden">
+                                {alerts.length > 0 ? (
+                                  <Badge variant="destructive" className="text-xs">
+                                    <AlertTriangle className="h-3 w-3 mr-1" />
+                                    {alerts.length} alerte{alerts.length > 1 ? 's' : ''}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="default" className="text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    OK
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-3 hidden md:table-cell">
                             <div className="text-sm">
                               {vehicle.currentMileage ? (
                                 <div className="font-medium">{vehicle.currentMileage.toLocaleString()} km</div>
@@ -417,31 +434,34 @@ export default function AdminVehiclesPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="text-sm space-y-1">
+                          <td className="px-3 py-3 hidden xl:table-cell">
+                            <div className="text-sm space-y-1 truncate">
                               {vehicle.nextInspectionDate && (
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3 text-gray-500" />
-                                  <span>CT: {formatDate(vehicle.nextInspectionDate)}</span>
+                                <div className="flex items-center gap-1 truncate">
+                                  <Calendar className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                  <span className="truncate">CT: {formatDate(vehicle.nextInspectionDate)}</span>
                                 </div>
                               )}
                               {vehicle.insuranceExpiry && (
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3 text-gray-500" />
-                                  <span>Assurance: {formatDate(vehicle.insuranceExpiry)}</span>
+                                <div className="flex items-center gap-1 truncate">
+                                  <Calendar className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                  <span className="truncate">Assurance: {formatDate(vehicle.insuranceExpiry)}</span>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-3 hidden lg:table-cell">
                             {alerts.length > 0 ? (
                               <div className="space-y-1">
-                                {alerts.map((alert, index) => (
-                                  <Badge key={index} variant="destructive" className="text-xs">
+                                {alerts.slice(0, 2).map((alert, index) => (
+                                  <Badge key={index} variant="destructive" className="text-xs block">
                                     <AlertTriangle className="h-3 w-3 mr-1" />
                                     {alert}
                                   </Badge>
                                 ))}
+                                {alerts.length > 2 && (
+                                  <div className="text-xs text-gray-500">+{alerts.length - 2} autre{alerts.length > 3 ? 's' : ''}</div>
+                                )}
                               </div>
                             ) : (
                               <Badge variant="default" className="text-xs">
@@ -450,12 +470,14 @@ export default function AdminVehiclesPage() {
                               </Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1">
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => router.push(`/admin/vehicles/${vehicle.id}`)}
+                                className="h-8 w-8 p-0 rounded-lg"
+                                title="Voir les détails"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -463,6 +485,8 @@ export default function AdminVehiclesPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => router.push(`/admin/vehicles/${vehicle.id}/edit`)}
+                                className="h-8 w-8 p-0 rounded-lg hidden md:inline-flex"
+                                title="Modifier"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -470,7 +494,8 @@ export default function AdminVehiclesPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDelete(vehicle.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 rounded-lg hidden lg:inline-flex"
+                                title="Supprimer"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

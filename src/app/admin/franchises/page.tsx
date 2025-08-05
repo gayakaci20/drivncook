@@ -6,7 +6,22 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { Button } from '@/src/components/ui/button'
 import { Badge } from '@/src/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import dynamic from 'next/dynamic'
+
+// Import dynamique pour éviter les erreurs SSR avec Leaflet
+const FranchiseMap = dynamic(() => import('@/components/maps/FranchiseMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 bg-gray-100 rounded-xl flex items-center justify-center">
+      <div className="text-center text-gray-500">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+        <p>Chargement de la carte...</p>
+      </div>
+    </div>
+  )
+})
 import { 
   Users, 
   Plus, 
@@ -346,16 +361,14 @@ export default function AdminFranchisesPage() {
         <TabsContent value="list" className="space-y-4">
           <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-hidden">
+                <table className="w-full table-fixed">
                   <thead className="border-b bg-gray-50/70 dark:bg-neutral-900/40">
                     <tr>
-                      <th className="px-4 py-3 text-left">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
-                          onChange={(e) => {
-                            if (e.target.checked) {
+                      <th className="w-12 px-2 py-3 text-left">
+                        <Checkbox
+                          onCheckedChange={(checked) => {
+                            if (checked) {
                               setSelectedFranchises(franchises.map(f => f.id))
                             } else {
                               setSelectedFranchises([])
@@ -363,19 +376,18 @@ export default function AdminFranchisesPage() {
                           }}
                         />
                       </th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Franchisé</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Entreprise</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Localisation</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Statut</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Véhicules</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Activité</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Actions</th>
+                      <th className="w-1/4 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Franchisé</th>
+                      <th className="w-1/6 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden lg:table-cell">Entreprise</th>
+                      <th className="w-1/6 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden md:table-cell">Localisation</th>
+                      <th className="w-1/6 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Statut</th>
+                      <th className="w-1/6 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300 hidden xl:table-cell">Activité</th>
+                      <th className="w-32 px-3 py-3 text-left font-medium text-gray-700 dark:text-neutral-300">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {franchises.length === 0 && !loading && (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                           <div className="space-y-2">
                             <p className="text-lg font-medium">Aucun franchisé trouvé</p>
                             <div className="text-sm space-y-1">
@@ -391,13 +403,11 @@ export default function AdminFranchisesPage() {
                     )}
                     {franchises.map((franchise) => (
                       <tr key={franchise.id} className="hover:bg-gray-50/70 dark:hover:bg-neutral-900/40">
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300"
+                        <td className="px-2 py-3">
+                          <Checkbox
                             checked={selectedFranchises.includes(franchise.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
+                            onCheckedChange={(checked) => {
+                              if (checked) {
                                 setSelectedFranchises([...selectedFranchises, franchise.id])
                               } else {
                                 setSelectedFranchises(selectedFranchises.filter(id => id !== franchise.id))
@@ -405,70 +415,78 @@ export default function AdminFranchisesPage() {
                             }}
                           />
                         </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-neutral-100">
+                        <td className="px-3 py-3">
+                          <div className="truncate">
+                            <div className="font-medium text-gray-900 dark:text-neutral-100 truncate">
                               {franchise.user.firstName} {franchise.user.lastName}
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {franchise.user.email}
+                            <div className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                              <Mail className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{franchise.user.email}</span>
                             </div>
                             {franchise.user.phone && (
-                              <div className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                {franchise.user.phone}
+                              <div className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-1 lg:hidden">
+                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{franchise.user.phone}</span>
                               </div>
                             )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-neutral-100">{franchise.businessName}</div>
-                            <div className="text-sm text-gray-500 dark:text-neutral-400">SIRET: {franchise.siretNumber}</div>
-                            <div className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {franchise.contactPhone}
+                            <div className="text-sm text-gray-500 dark:text-neutral-400 lg:hidden truncate">
+                              {franchise.businessName}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-neutral-400 md:hidden truncate">
+                              {franchise.city}, {franchise.postalCode}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 text-sm">
-                            <MapPin className="h-3 w-3 text-gray-500" />
-                            <span>{franchise.city}, {franchise.postalCode}</span>
+                        <td className="px-3 py-3 hidden lg:table-cell">
+                          <div className="truncate">
+                            <div className="font-medium text-gray-900 dark:text-neutral-100 truncate">{franchise.businessName}</div>
+                            <div className="text-sm text-gray-500 dark:text-neutral-400 truncate">SIRET: {franchise.siretNumber}</div>
+                            <div className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                              <Phone className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{franchise.contactPhone}</span>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-neutral-400">{franchise.region}</div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 hidden md:table-cell">
+                          <div className="truncate">
+                            <div className="flex items-center gap-1 text-sm truncate">
+                              <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                              <span className="truncate">{franchise.city}, {franchise.postalCode}</span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-neutral-400 truncate">{franchise.region}</div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
                           <div className="space-y-1">
                             {getStatusBadge(franchise.status)}
+                            <div className="xl:hidden">
+                              <div className="text-xs text-gray-500">
+                                {franchise._count.orders} cmd • {franchise._count.salesReports} rap
+                              </div>
+                            </div>
                             {getEntryFeeStatus(franchise.entryFeePaid, franchise.entryFeeDate)}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <Truck className="h-4 w-4 text-gray-500" />
-                            <span className="font-medium">{franchise.vehicles.length}</span>
-                          </div>
-                          {franchise.vehicles.map((vehicle) => (
-                            <div key={vehicle.id} className="text-xs text-gray-500">
-                              {vehicle.licensePlate} ({vehicle.brand})
-                            </div>
-                          ))}
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 hidden xl:table-cell">
                           <div className="text-sm">
                             <div>{franchise._count.orders} commandes</div>
                             <div>{franchise._count.salesReports} rapports</div>
                             <div>{franchise._count.invoices} factures</div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Truck className="h-3 w-3 text-gray-500" />
+                              <span className="text-xs">{franchise.vehicles.length} véhicule{franchise.vehicles.length > 1 ? 's' : ''}</span>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => router.push(`/admin/franchises/${franchise.id}`)}
+                              className="h-8 w-8 p-0 rounded-lg"
+                              title="Voir les détails"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -476,6 +494,8 @@ export default function AdminFranchisesPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => router.push(`/admin/franchises/${franchise.id}/edit`)}
+                              className="h-8 w-8 p-0 rounded-lg hidden md:inline-flex"
+                              title="Modifier"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -484,7 +504,8 @@ export default function AdminFranchisesPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDelete(franchise.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 rounded-lg hidden lg:inline-flex"
+                                title="Supprimer"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -545,14 +566,75 @@ export default function AdminFranchisesPage() {
 
         <TabsContent value="map" className="space-y-4">
           <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
-            <CardContent className="p-6">
-              <div className="h-96 bg-gray-100 rounded-xl flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPin className="h-12 w-12 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Carte des franchisés</h3>
-                  <p>Visualisation géographique en cours de développement</p>
-                  <p className="text-sm">Intégration Google Maps/OpenStreetMap à venir</p>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-blue-500" />
+                    Carte des franchisés
+                  </CardTitle>
+                  <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+                    Visualisation géographique de vos {franchises.length} franchisé{franchises.length > 1 ? 's' : ''}
+                  </p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-xs">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span>Actif</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span>En attente</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span>Suspendu</span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <FranchiseMap 
+                franchises={franchises}
+                onFranchiseClick={(franchise) => router.push(`/admin/franchises/${franchise.id}`)}
+              />
+            </CardContent>
+          </Card>
+          
+          {/* Statistiques par région */}
+          <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+            <CardHeader>
+              <CardTitle>Répartition par région</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(
+                  franchises.reduce((acc, franchise) => {
+                    const region = franchise.region
+                    if (!acc[region]) {
+                      acc[region] = { total: 0, active: 0, pending: 0 }
+                    }
+                    acc[region].total++
+                    if (franchise.status === 'ACTIVE') acc[region].active++
+                    if (franchise.status === 'PENDING') acc[region].pending++
+                    return acc
+                  }, {} as Record<string, { total: number; active: number; pending: number }>)
+                ).map(([region, stats]) => (
+                  <div key={region} className="p-4 border rounded-xl">
+                    <div className="font-medium text-gray-900 dark:text-neutral-100 mb-2">{region}</div>
+                    <div className="text-2xl font-bold text-blue-600 mb-1">{stats.total}</div>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Actifs:</span>
+                        <span className="font-medium text-green-600">{stats.active}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>En attente:</span>
+                        <span className="font-medium text-yellow-600">{stats.pending}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

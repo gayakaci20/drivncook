@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox, CheckboxWithLabel } from '@/components/ui/checkbox'
 import { 
   Users, 
   Truck, 
@@ -196,10 +197,19 @@ export default function AdminDashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Building2 className="h-4 w-4 text-blue-500" /> Actions rapides</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             <Button variant="outline" size="sm" className="w-full rounded-xl">Nouveau franchisé</Button>
             <Button variant="outline" size="sm" className="w-full rounded-xl">Nouveau véhicule</Button>
             <Button variant="outline" size="sm" className="w-full rounded-xl">Générer rapport</Button>
+            
+            <hr className="my-3" />
+            
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700 dark:text-neutral-300">Filtres rapides :</p>
+              <CheckboxWithLabel label="Franchisés actifs uniquement" size="sm" />
+              <CheckboxWithLabel label="Véhicules disponibles" size="sm" />
+              <CheckboxWithLabel label="Notifications temps réel" size="sm" defaultChecked />
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -281,6 +291,34 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-muted-foreground">
                     Sur les 30 derniers jours
                   </p>
+                </div>
+              </div>
+              
+              {/* Démonstration des composants checkbox */}
+              <div className="p-4 border rounded-xl mt-4">
+                <h4 className="font-medium mb-4">Options d'affichage</h4>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">Tailles disponibles :</p>
+                    <CheckboxWithLabel label="Petit (sm)" size="sm" />
+                    <CheckboxWithLabel label="Normal (default)" />
+                    <CheckboxWithLabel label="Grand (lg)" size="lg" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">Options :</p>
+                    <div className="flex items-center gap-2">
+                      <Checkbox size="sm" />
+                      <span className="text-sm">Checkbox seule (petite)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox defaultChecked />
+                      <span className="text-sm">Checkbox cochée par défaut</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked="indeterminate" />
+                      <span className="text-sm">État intermédiaire</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
 import { Button } from '@/src/components/ui/button'
+import { CheckboxWithLabel } from '@/components/ui/checkbox'
 import { Badge } from '@/src/components/ui/badge'
 import { 
   User, 
@@ -457,16 +458,10 @@ export default function NewFranchisePage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input
-                  {...register('entryFeePaid')}
-                  type="checkbox"
-                  className="rounded border-gray-300"
-                />
-                <label className="text-sm font-medium text-gray-700">
-                  Droit d&apos;entrée déjà payé
-                </label>
-              </div>
+              <CheckboxWithLabel
+                {...register('entryFeePaid')}
+                label="Droit d'entrée déjà payé"
+              />
 
               {watchEntryFeePaid && (
                 <div>

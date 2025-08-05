@@ -41,7 +41,7 @@ Plateforme de gestion dédiée aux franchisés de food trucks. Un espace sécuri
 ```
 drivncook/
 ├── src/
-│   ├── app/                    # Pages et API routes (App Router)
+│   ├── app/                   # Pages et API routes (App Router)
 │   │   ├── admin/             # Interface administrateur
 │   │   ├── franchise/         # Interface franchisé
 │   │   └── api/               # API endpoints

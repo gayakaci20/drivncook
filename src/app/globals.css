@@ -1,6 +1,28 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Leaflet CSS - imported here for global availability */
+@import "leaflet/dist/leaflet.css";
+
+/* Custom styles for Leaflet map */
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.custom-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
