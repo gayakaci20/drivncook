@@ -47,6 +47,8 @@ export async function middleware(request: NextRequest) {
 
   const user: ExtendedUser = sessionData.user
   console.log('User role:', user.role)
+  console.log('User franchiseId:', user.franchiseId)
+  console.log('User isActive:', user.isActive)
 
   if (pathname.startsWith('/admin')) {
     if (user.role !== 'ADMIN') {
@@ -56,6 +58,12 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith('/franchise')) {
     if (user.role !== 'FRANCHISEE') {
+      return NextResponse.redirect(new URL('/unauthorized', request.url))
+    }
+    
+    // Vérifier que le franchisé est actif
+    if (!user.isActive) {
+      console.log('User is not active, redirecting to unauthorized')
       return NextResponse.redirect(new URL('/unauthorized', request.url))
     }
   }

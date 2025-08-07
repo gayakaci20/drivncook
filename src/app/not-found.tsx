@@ -4,7 +4,7 @@ import { ArrowLeftIcon } from 'lucide-react'
 export default function NotFound() {
   return (
     <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Hero decorative background (from Home page) */}
+      {/* Hero decorative background */}
       <div aria-hidden="true" className="flex absolute -top-96 start-1/2 transform -translate-x-1/2">
         <div className="bg-linear-to-r from-red-300/50 to-red-100 blur-3xl w-100 h-175 rotate-[-60deg] transform -translate-x-40 dark:from-red-900/50 dark:to-red-900"></div>
         <div className="bg-linear-to-tl from-red-50 via-red-100 to-red-50 blur-3xl w-[1440px] h-200 rounded-fulls origin-top-left -rotate-12 -translate-x-60 dark:from-red-900/70 dark:via-red-900/70 dark:to-red-900/70"></div>

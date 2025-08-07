@@ -36,6 +36,10 @@ export const auth = betterAuth({
       isActive: {
         type: 'boolean',
         defaultValue: true
+      },
+      franchiseId: {
+        type: 'string',
+        required: false
       }
     }
   },
@@ -56,6 +60,11 @@ export const auth = betterAuth({
         where: { id: user.user.id },
         data: { firstName: user.user.firstName, lastName: user.user.lastName }
       })
+    }
+
+    // S'assurer que le franchiseId est synchronisé dans la session
+    if (dbUser.franchiseId && user.user.franchiseId !== dbUser.franchiseId) {
+      user.user.franchiseId = dbUser.franchiseId
     }
     
     return user

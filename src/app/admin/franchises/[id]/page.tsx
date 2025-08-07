@@ -31,6 +31,7 @@ import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 import { useSession } from '@/lib/auth-client'
 import { safeFetchJson } from '@/lib/utils'
+import { useAlertDialog, useSimpleAlert } from '@/components/ui/alert-dialog'
 
 interface FranchiseDetail {
   id: string
@@ -119,7 +120,12 @@ export default function FranchiseDetailPage({ params }: PageProps) {
   const resolvedParams = use(params)
   const [franchise, setFranchise] = useState<FranchiseDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isRequestingDocuments, setIsRequestingDocuments] = useState(false)
+  const [isValidatingDocuments, setIsValidatingDocuments] = useState(false)
   const { data: session, isPending } = useSession()
+  
+  const { showAlert: showConfirmDialog, AlertDialogComponent: ConfirmDialog } = useAlertDialog()
+  const { showAlert: showSimpleAlert, AlertComponent: SimpleAlert } = useSimpleAlert()
 
   useEffect(() => {
     if (isPending) return
@@ -149,7 +155,15 @@ export default function FranchiseDetailPage({ params }: PageProps) {
   }
 
   const handleDelete = async () => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce franchisé ? Cette action est irréversible.')) return
+    const confirmed = await showConfirmDialog({
+      title: 'Supprimer le franchisé',
+      description: 'Êtes-vous sûr de vouloir supprimer ce franchisé ? Cette action est irréversible.',
+      confirmText: 'Supprimer',
+      cancelText: 'Annuler',
+      variant: 'destructive'
+    })
+
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/franchises/${resolvedParams.id}`, {
@@ -160,11 +174,152 @@ export default function FranchiseDetailPage({ params }: PageProps) {
         router.push('/admin/franchises')
       } else {
         const errorData = await response.json()
-        alert(`Erreur : ${errorData.error}`)
+        showSimpleAlert({
+          title: 'Erreur',
+          description: `Erreur : ${errorData.error}`,
+          variant: 'destructive'
+        })
       }
     } catch (error) {
       console.error('Erreur lors de la suppression:', error)
-      alert('Erreur lors de la suppression')
+      showSimpleAlert({
+        title: 'Erreur',
+        description: 'Erreur lors de la suppression',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleRequestMissingDocuments = async () => {
+    if (!franchise) return
+
+    const missingDocuments = []
+    if (!franchise.kbisDocument) {
+      missingDocuments.push('Document KBIS')
+    }
+    if (!franchise.idCardDocument) {
+      missingDocuments.push('Carte d\'identité')
+    }
+
+    if (missingDocuments.length === 0) {
+      showSimpleAlert({
+        title: 'Aucun document manquant',
+        description: 'Tous les documents requis sont présents.',
+        variant: 'success'
+      })
+      return
+    }
+
+    const confirmed = await showConfirmDialog({
+      title: 'Demander les documents manquants',
+      description: `Envoyer un email de demande de documents à ${franchise.user.firstName} ${franchise.user.lastName} ?\n\nDocuments manquants :\n${missingDocuments.map(doc => `• ${doc}`).join('\n')}`,
+      confirmText: 'Envoyer l\'email',
+      cancelText: 'Annuler'
+    })
+    
+    if (!confirmed) return
+
+    setIsRequestingDocuments(true)
+
+    try {
+      const response = await fetch(`/api/franchises/${resolvedParams.id}/request-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          missingDocuments
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        showSimpleAlert({
+          title: 'Email envoyé avec succès',
+          description: `Email envoyé avec succès à ${franchise.user.firstName} ${franchise.user.lastName} (${franchise.user.email})`,
+          variant: 'success'
+        })
+      } else {
+        showSimpleAlert({
+          title: 'Erreur',
+          description: `Erreur lors de l'envoi de l'email : ${result.error}`,
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      console.error('Erreur lors de la demande de documents:', error)
+      showSimpleAlert({
+        title: 'Erreur',
+        description: 'Erreur lors de l\'envoi de l\'email',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsRequestingDocuments(false)
+    }
+  }
+
+  const handleValidateDocuments = async () => {
+    if (!franchise) return
+
+    if (!franchise.kbisDocument || !franchise.idCardDocument) {
+      showSimpleAlert({
+        title: 'Validation impossible',
+        description: 'Tous les documents requis ne sont pas présents.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    const confirmed = await showConfirmDialog({
+      title: 'Valider tous les documents',
+      description: `Valider tous les documents de ${franchise.user.firstName} ${franchise.user.lastName} ?\n\nCela confirmera que :\n• Le document KBIS est valide\n• La carte d'identité est valide\n\n${franchise.status === 'PENDING' ? 'La franchise sera automatiquement activée.' : ''}`,
+      confirmText: 'Valider',
+      cancelText: 'Annuler'
+    })
+    
+    if (!confirmed) return
+
+    setIsValidatingDocuments(true)
+
+    try {
+      const response = await fetch(`/api/franchises/${resolvedParams.id}/validate-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        await fetchFranchiseDetail()
+        
+        const statusMessage = result.data.statusUpdated 
+          ? `Franchise validée et activée avec succès !\n\n${franchise.user.firstName} ${franchise.user.lastName} a reçu un email de confirmation et peut maintenant accéder à toutes les fonctionnalités.`
+          : `Documents validés avec succès !\n\n${franchise.user.firstName} ${franchise.user.lastName} a reçu un email de confirmation.`
+        
+        showSimpleAlert({
+          title: result.data.statusUpdated ? 'Franchise activée !' : 'Documents validés',
+          description: statusMessage,
+          variant: 'success'
+        })
+      } else {
+        showSimpleAlert({
+          title: 'Erreur de validation',
+          description: `Erreur lors de la validation : ${result.error}`,
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      console.error('Erreur lors de la validation des documents:', error)
+      showSimpleAlert({
+        title: 'Erreur',
+        description: 'Erreur lors de la validation des documents',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsValidatingDocuments(false)
     }
   }
 
@@ -771,13 +926,11 @@ export default function FranchiseDetailPage({ params }: PageProps) {
                         <Button 
                           size="sm" 
                           className="bg-green-600 hover:bg-green-700"
-                          onClick={() => {
-                             
-                            alert('Fonctionnalité de validation à implémenter')
-                          }}
+                          onClick={handleValidateDocuments}
+                          disabled={isValidatingDocuments}
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          Valider tous les documents
+                          {isValidatingDocuments ? 'Validation en cours...' : 'Valider tous les documents'}
                         </Button>
                       ) : (
                         <Button 
@@ -792,13 +945,11 @@ export default function FranchiseDetailPage({ params }: PageProps) {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => {
-                           
-                          alert('Fonctionnalité de demande de documents à implémenter')
-                        }}
+                        onClick={handleRequestMissingDocuments}
+                        disabled={isRequestingDocuments}
                       >
                         <Mail className="h-4 w-4 mr-2" />
-                        Demander documents manquants
+                        {isRequestingDocuments ? 'Envoi en cours...' : 'Demander documents manquants'}
                       </Button>
                     </div>
                   </div>
@@ -1005,6 +1156,10 @@ export default function FranchiseDetailPage({ params }: PageProps) {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* AlertDialogs */}
+      <ConfirmDialog />
+      <SimpleAlert />
     </div>
   )
 }

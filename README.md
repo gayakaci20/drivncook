@@ -15,6 +15,7 @@ Plateforme de gestion dédiée aux franchisés de food trucks. Un espace sécuri
 - **Graphiques** : ApexCharts
 - **Validation** : React Hook Form avec Zod
 - **PDF Generation** : Puppeteer
+- **File Upload** : UploadThing
 
 ## Fonctionnalités principales
 

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { ExtendedUser } from '@/types/auth'
 import { addToast } from '@heroui/toast'
+import { UserRole } from '@/types/prisma-enums'
 
 interface FranchiseProfile {
   id: string
@@ -60,9 +61,9 @@ export default function FranchiseProfilePage() {
   const [editMode, setEditMode] = useState(false)
 
   useEffect(() => {
-    if ((session?.user as ExtendedUser).franchiseId) {
+    if ((session?.user as ExtendedUser).franchiseId && (session?.user as ExtendedUser).role === UserRole.FRANCHISEE) {
       fetchProfile()
-    } else if (session?.user && !(session.user as ExtendedUser).franchiseId) {
+    } else if (session?.user && !(session.user as ExtendedUser).franchiseId && (session?.user as ExtendedUser).role === UserRole.FRANCHISEE) {
        
       setLoading(false)
     }
@@ -70,7 +71,7 @@ export default function FranchiseProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(`/api/franchises/${(session?.user as ExtendedUser).franchiseId}`)
+      const response = await fetch(`/api/franchises/${(session?.user as ExtendedUser).role === UserRole.FRANCHISEE ? (session?.user as ExtendedUser).franchiseId : (session?.user as ExtendedUser).id}`)
       const data = await response.json()
       
       if (data.success) {
@@ -148,11 +149,11 @@ export default function FranchiseProfilePage() {
           Profil introuvable
         </h3>
         <p className="text-gray-600 dark:text-neutral-400 mb-4">
-          {(session?.user as ExtendedUser).franchiseId 
+          {(session?.user as ExtendedUser).franchiseId && (session?.user as ExtendedUser).role === UserRole.FRANCHISEE
             ? "Impossible de charger les informations de votre franchise" 
             : "Aucune franchise associée à votre compte"}
         </p>
-        {!(session?.user as ExtendedUser).franchiseId && (
+        {!(session?.user as ExtendedUser).franchiseId && (session?.user as ExtendedUser).role === UserRole.FRANCHISEE && (
           <p className="text-sm text-gray-500 dark:text-neutral-500">
             Veuillez contacter l'administrateur pour associer une franchise à votre compte.
           </p>

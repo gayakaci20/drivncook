@@ -10,8 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Notification } from '@/components/ui/notification'
 import { 
-  Bell, 
   User, 
   LogOut, 
   Settings,
@@ -66,12 +66,11 @@ export function AdminHeader() {
           </Button>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative rounded-xl hover:translate-y-[1px] transition-transform">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
-              3
-            </span>
-          </Button>
+          <Notification 
+            className="rounded-xl hover:translate-y-[1px] transition-transform"
+            buttonVariant="ghost"
+            buttonSize="icon"
+          />
 
           {/* User menu */}
           <DropdownMenu>

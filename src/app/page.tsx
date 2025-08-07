@@ -27,7 +27,6 @@ export default function Home() {
     }
   }, [session, isPending, router, isMounted])
 
-  // Show loading state until mounted and session is resolved
   if (!isMounted || isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -36,7 +35,6 @@ export default function Home() {
     )
   }
 
-  // Show loading state while redirecting authenticated users
   if (session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">

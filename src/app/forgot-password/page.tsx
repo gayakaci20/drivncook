@@ -16,6 +16,7 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const darkMode = localStorage.getItem('darkMode') === 'true' || 
@@ -25,12 +26,30 @@ export default function ForgotPassword() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError('')
     
-    
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.toLowerCase() }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setIsSubmitted(true)
+      } else {
+        setError(data.error || 'Une erreur est survenue')
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi:', error)
+      setError('Erreur de connexion. Veuillez réessayer.')
+    } finally {
       setIsLoading(false)
-      setIsSubmitted(true)
-    }, 2000)
+    }
   }
 
   return (
@@ -75,6 +94,17 @@ export default function ForgotPassword() {
                   {/* Content */}
                   {!isSubmitted ? (
                     <form onSubmit={handleSubmit} className="space-y-6">
+                      {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                          <div className="flex items-center">
+                            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            {error}
+                          </div>
+                        </div>
+                      )}
+
                       <div>
                         <label htmlFor="email" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">
                           Adresse email
@@ -85,7 +115,10 @@ export default function ForgotPassword() {
                             id="email" 
                             name="email"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => {
+                              setEmail(e.target.value)
+                              setError('') // Clear error when user types
+                            }}
                             className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:placeholder-neutral-500" 
                             placeholder="votre@email.com"
                             required 
@@ -141,7 +174,7 @@ export default function ForgotPassword() {
                         <button 
                           onClick={() => {
                             setIsSubmitted(false)
-                            setEmail('')
+                            setError('')
                           }}
                           className="flex-1 py-2.5 px-4 inline-flex justify-center items-center gap-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500/30"
                         >

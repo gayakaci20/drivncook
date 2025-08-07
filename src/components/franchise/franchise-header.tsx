@@ -10,9 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Notification } from '@/components/ui/notification'
 import { useTheme } from '@/components/providers/theme-provider'
 import { 
-  Bell, 
   User, 
   LogOut, 
   Settings,
@@ -26,7 +26,6 @@ import { useRouter } from 'next/navigation'
 export function FranchiseHeader() {
   const router = useRouter()
   const { data: session } = useSession()
-  const [notifications] = useState(3)  
   const { isDarkMode, toggleDarkMode } = useTheme()
 
   const handleSignOut = async () => { 
@@ -72,14 +71,11 @@ export function FranchiseHeader() {
           </Button>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative rounded-xl hover:translate-y-[1px] transition-transform">
-            <Bell className="h-5 w-5" />
-            {notifications > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
-                {notifications}
-              </span>
-            )}
-          </Button>
+          <Notification 
+            className="rounded-xl hover:translate-y-[1px] transition-transform"
+            buttonVariant="ghost"
+            buttonSize="icon"
+          />
 
           {/* Actions rapides */}
           <div className="hidden md:flex items-center gap-2">

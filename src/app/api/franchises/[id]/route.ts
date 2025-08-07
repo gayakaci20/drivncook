@@ -23,12 +23,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
     
-    if ((session.user as ExtendedUser).role !== UserRole.ADMIN) {
-      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
-    }
-
     const resolvedParams = await params
     const franchiseId = resolvedParams.id
+    
+    const user = session.user as ExtendedUser
+    if (user.role === UserRole.ADMIN) {
+    } else if (user.role === UserRole.FRANCHISEE) {
+      if (user.franchiseId !== franchiseId) {
+        return NextResponse.json({ success: false, error: 'Accès refusé à cette franchise' }, { status: 403 })
+      }
+    } else {
+      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
+    }
 
      
     const franchise = await prisma.franchise.findUnique({
