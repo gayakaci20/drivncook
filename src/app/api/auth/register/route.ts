@@ -1,12 +1,27 @@
 import { NextRequest } from 'next/server'
-import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils'
-import { UserRole } from '@prisma/client'
 
-const registerSchema = z.object({
-  // Informations personnelles
+import { auth } from '@/lib/auth'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
+
+ 
+const adminRegistrationSchema = z.object({
+  firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
+  lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
+  email: z.string().email('Email invalide'),
+  password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Les mots de passe ne correspondent pas",
+  path: ["confirmPassword"],
+})
+
+ 
+const franchiseeRegistrationSchema = z.object({
+   
   firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
   email: z.string().email('Email invalide'),
@@ -14,7 +29,7 @@ const registerSchema = z.object({
   personalEmail: z.string().email().optional().or(z.literal('')),
   drivingLicense: z.string().optional(),
   
-  // Informations entreprise
+   
   businessName: z.string().min(2, 'Le nom de l\'entreprise est requis'),
   siretNumber: z.string().min(14, 'Le numéro SIRET doit contenir 14 chiffres'),
   vatNumber: z.string().optional(),
@@ -25,11 +40,25 @@ const registerSchema = z.object({
   contactEmail: z.string().email('Email de contact invalide'),
   contactPhone: z.string().min(10, 'Le téléphone de contact est requis'),
   
-  // Sécurité
+   
+  kbisDocument: z.array(z.object({
+    name: z.string(),
+    size: z.number(),
+    type: z.string(),
+    url: z.string().url(),
+  })).optional(),
+  idCardDocument: z.array(z.object({
+    name: z.string(),
+    size: z.number(),
+    type: z.string(),
+    url: z.string().url(),
+  })).optional(),
+  
+   
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
   confirmPassword: z.string(),
   
-  // Acceptation
+   
   acceptTerms: z.boolean().refine(val => val === true, {
     message: 'Vous devez accepter les conditions générales'
   })
@@ -42,8 +71,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Validation des données
-    const validationResult = registerSchema.safeParse(body)
+     
+    const adminCount = await prisma.user.count({
+      where: { role: UserRole.ADMIN }
+    })
+
+    const isFirstUser = adminCount === 0
+
+     
+    const schema = isFirstUser ? adminRegistrationSchema : franchiseeRegistrationSchema
+    const validationResult = schema.safeParse(body)
+    
     if (!validationResult.success) {
       return createErrorResponse(
         `Données invalides: ${validationResult.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(', ')}`,
@@ -53,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const data = validationResult.data
 
-    // Vérifier si l'email existe déjà
+     
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email }
     })
@@ -62,88 +100,124 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Cette adresse email est déjà utilisée', 400)
     }
 
-    // Vérifier si l'email de contact existe déjà
-    if (data.contactEmail !== data.email) {
-      const existingContactEmail = await prisma.franchise.findFirst({
-        where: { contactEmail: data.contactEmail }
-      })
-
-      if (existingContactEmail) {
-        return createErrorResponse('Cette adresse email de contact est déjà utilisée', 400)
-      }
-    }
-
-    // Vérifier si le SIRET existe déjà
-    const existingSiret = await prisma.franchise.findUnique({
-      where: { siretNumber: data.siretNumber }
-    })
-
-    if (existingSiret) {
-      return createErrorResponse('Ce numéro SIRET est déjà utilisé', 400)
-    }
-
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(data.password, 12)
-
-    // Créer l'utilisateur et le franchisé en transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Créer l'utilisateur
-      const user = await tx.user.create({
-        data: {
+    if (isFirstUser) {
+       
+      const authResult = await auth.api.signUpEmail({
+        body: {
           email: data.email,
-          password: hashedPassword,
+          password: data.password,
+          name: `${data.firstName} ${data.lastName}`,
           firstName: data.firstName,
           lastName: data.lastName,
-          phone: data.personalPhone,
-          role: UserRole.FRANCHISEE,
-          isActive: false // En attente de validation
+          role: UserRole.ADMIN,
+          isActive: true  
         }
       })
 
-      // Créer le franchisé
-      const franchise = await tx.franchise.create({
-        data: {
-          userId: user.id,
-          businessName: data.businessName,
-          siretNumber: data.siretNumber,
-          vatNumber: data.vatNumber,
-          address: data.address,
-          city: data.city,
-          postalCode: data.postalCode,
-          region: data.region,
-          contactEmail: data.contactEmail,
-          contactPhone: data.contactPhone,
-          status: 'PENDING', // En attente de validation
-          personalEmail: data.personalEmail || null,
-          drivingLicense: data.drivingLicense || null
-        },
-        include: {
+      if (!authResult) {
+        return createErrorResponse('Erreur lors de la création du compte administrateur', 500)
+      }
+
+      return createSuccessResponse(
+        { 
           user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              isActive: true,
-              createdAt: true
-            }
+            id: authResult.user.id,
+            email: (authResult.user as ExtendedUser).email,
+            firstName: (authResult.user as ExtendedUser).firstName,
+            lastName: (authResult.user as ExtendedUser).lastName,
+            role: (authResult.user as ExtendedUser).role,
+            isActive: (authResult.user as ExtendedUser).isActive,
+            createdAt: (authResult.user as ExtendedUser).createdAt
           }
+        },
+        'Compte administrateur créé avec succès ! Vous pouvez maintenant vous connecter.'
+      )
+    } else {
+       
+      
+       
+      const franchiseData = data as z.infer<typeof franchiseeRegistrationSchema>
+      if (franchiseData.contactEmail !== franchiseData.email) {
+        const existingContactEmail = await prisma.franchise.findFirst({
+          where: { contactEmail: franchiseData.contactEmail }
+        })
+
+        if (existingContactEmail) {
+          return createErrorResponse('Cette adresse email de contact est déjà utilisée', 400)
+        }
+      }
+
+       
+      const existingSiret = await prisma.franchise.findUnique({
+        where: { siretNumber: franchiseData.siretNumber }
+      })
+
+      if (existingSiret) {
+        return createErrorResponse('Ce numéro SIRET est déjà utilisé', 400)
+      }
+
+       
+      const authResult = await auth.api.signUpEmail({
+        body: {
+          email: franchiseData.email,
+          password: franchiseData.password,
+          name: `${franchiseData.firstName} ${franchiseData.lastName}`,
+          firstName: franchiseData.firstName,
+          lastName: franchiseData.lastName,
+          phone: franchiseData.personalPhone,
+          role: UserRole.FRANCHISEE,
+          isActive: false  
         }
       })
 
-      return franchise
-    })
+      if (!authResult) {
+        return createErrorResponse('Erreur lors de la création du compte', 500)
+      }
 
-    return createSuccessResponse(
-      { 
-        id: result.id,
-        businessName: result.businessName,
-        status: result.status,
-        user: result.user
-      },
-      'Inscription réussie ! Votre demande est en cours de traitement. Vous recevrez un email de confirmation une fois votre compte validé.'
-    )
+       
+      const result = await prisma.$transaction(async (tx: any) => {
+         
+        const franchise = await tx.franchise.create({
+          data: {
+            userId: authResult.user.id,
+            businessName: franchiseData.businessName,
+            siretNumber: franchiseData.siretNumber,
+            vatNumber: franchiseData.vatNumber,
+            address: franchiseData.address,
+            city: franchiseData.city,
+            postalCode: franchiseData.postalCode,
+            region: franchiseData.region,
+            contactEmail: franchiseData.contactEmail,
+            contactPhone: franchiseData.contactPhone,
+            status: 'PENDING',  
+            personalEmail: franchiseData.personalEmail || null,
+            drivingLicense: franchiseData.drivingLicense || null,
+            kbisDocument: franchiseData.kbisDocument && franchiseData.kbisDocument.length > 0 ? franchiseData.kbisDocument[0].url : null,
+            idCardDocument: franchiseData.idCardDocument && franchiseData.idCardDocument.length > 0 ? franchiseData.idCardDocument[0].url : null
+          },
+        })
+
+        return franchise
+      })
+
+      return createSuccessResponse(
+        { 
+          id: result.id,
+          businessName: result.businessName,
+          status: result.status,
+          user: {
+            id: authResult.user.id,
+            email: (authResult.user as ExtendedUser).email,
+            firstName: (authResult.user as ExtendedUser).firstName,
+            lastName: (authResult.user as ExtendedUser).lastName,
+            phone: (authResult.user as ExtendedUser).phone,
+            isActive: (authResult.user as ExtendedUser).isActive,
+            createdAt: (authResult.user as ExtendedUser).createdAt
+          }
+        },
+        'Inscription réussie ! Votre demande est en cours de traitement. Vous recevrez un email de confirmation une fois votre compte validé.'
+      )
+    }
 
   } catch (error) {
     console.error('Erreur lors de l\'inscription:', error)

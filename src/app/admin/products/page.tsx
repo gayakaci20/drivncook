@@ -5,6 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Package, Plus, Search, Filter } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
+import { useSession } from '@/lib/auth-client'
+import { useRouter } from 'next/navigation'
+
 
 interface Product {
   id: string
@@ -30,14 +35,23 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const { data: session, isPending } = useSession()
+  const router = useRouter()
 
   useEffect(() => {
+    if (isPending) return
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      router.push('/unauthorized')
+      return
+    }
+
     fetchProducts()
-  }, [])
+  }, [session, isPending, router])
 
   const fetchProducts = async () => {
     try {
-      // Simuler un appel API - à remplacer par le vrai endpoint
+       
       setProducts([])
     } catch (error) {
       console.error('Erreur lors du chargement des produits:', error)

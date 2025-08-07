@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+
 import { 
   withAuth, 
   withErrorHandling, 
@@ -12,21 +13,24 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { vehicleSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/vehicles - Lister les véhicules
+ 
 export async function GET(request: NextRequest) {
   try {
-    // Vérifier l'authentification
-    const session = await getServerSession(authOptions)
+     
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
     
     if (!session?.user) {
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Vérifier les permissions
-    const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'FRANCHISE_MANAGER', 'FRANCHISEE']
-    if (!allowedRoles.includes(session.user.role)) {
+     
+    const allowedRoles = [UserRole.ADMIN, UserRole.FRANCHISEE]
+    if (!allowedRoles.includes((session.user as ExtendedUser).role)) {
       return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
     }
 
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || ''
     const franchiseId = searchParams.get('franchiseId') || ''
 
-    // Construire les filtres
+     
     const where: any = {}
     
     if (search) {
@@ -52,21 +56,21 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
-    // Gestion des permissions pour les franchisés
-    if (session.user.role === 'FRANCHISEE') {
-      // Les franchisés ne peuvent voir que leurs propres véhicules
-      if (session.user.franchiseId) {
-        where.franchiseId = session.user.franchiseId
+     
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE) {
+       
+      if ((session.user as ExtendedUser).franchiseId) {
+        where.franchiseId = (session.user as ExtendedUser).franchiseId
       } else {
-        // Si le franchisé n'a pas de franchise associée, ne retourner aucun véhicule
+         
         where.franchiseId = 'non-existent-id'
       }
     } else if (franchiseId) {
-      // Pour les admins et managers, respecter le filtre franchiseId s'il est fourni
+       
       where.franchiseId = franchiseId
     }
 
-    // Récupérer les véhicules avec pagination
+     
     const [vehicles, total] = await Promise.all([
       prisma.vehicle.findMany({
         where,
@@ -125,12 +129,12 @@ export async function GET(request: NextRequest) {
 
 
 
-// POST /api/vehicles - Créer un nouveau véhicule
+ 
 export const POST = withAuth(
   withValidation(
     vehicleSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
-      // Vérifier si la plaque d'immatriculation existe déjà
+       
       const existingPlate = await prisma.vehicle.findUnique({
         where: { licensePlate: validatedData.licensePlate }
       })
@@ -139,7 +143,7 @@ export const POST = withAuth(
         return createErrorResponse('Cette plaque d\'immatriculation est déjà utilisée', 400)
       }
 
-      // Vérifier si le VIN existe déjà
+       
       const existingVin = await prisma.vehicle.findUnique({
         where: { vin: validatedData.vin }
       })
@@ -148,7 +152,7 @@ export const POST = withAuth(
         return createErrorResponse('Ce numéro VIN est déjà utilisé', 400)
       }
 
-      // Si un franchisé est assigné, vérifier qu'il existe
+       
       if (validatedData.franchiseId) {
         const franchise = await prisma.franchise.findUnique({
           where: { id: validatedData.franchiseId }
@@ -159,7 +163,7 @@ export const POST = withAuth(
         }
       }
 
-      // Préparer les données
+       
       const vehicleData = {
         ...validatedData,
         purchaseDate: new Date(validatedData.purchaseDate),
@@ -168,7 +172,7 @@ export const POST = withAuth(
         insuranceExpiry: validatedData.insuranceExpiry ? new Date(validatedData.insuranceExpiry) : null
       }
 
-      // Créer le véhicule
+       
       const vehicle = await prisma.vehicle.create({
         data: vehicleData,
         include: {
@@ -186,19 +190,19 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'vehicles',
           recordId: vehicle.id,
           newValues: JSON.stringify(vehicle),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(vehicle, 'Véhicule créé avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { CheckboxWithLabel } from '@/components/ui/checkbox'
-import { Badge } from '@/src/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+
+import { Badge } from '@/components/ui/badge'
 import { 
   User, 
   Building2, 
@@ -21,9 +21,13 @@ import {
   MapPin
 } from 'lucide-react'
 import { z } from 'zod'
+import { ExtendedUser } from '@/types/auth'
+import { useSession } from '@/lib/auth-client'
+import { UserRole } from '@/types/prisma-enums'
+
 
 const createFranchiseSchema = z.object({
-  // Données utilisateur
+   
   userData: z.object({
     email: z.string().email('Email invalide'),
     password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
@@ -31,7 +35,7 @@ const createFranchiseSchema = z.object({
     lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
     phone: z.string().optional()
   }),
-  // Données franchise
+   
   businessName: z.string().min(2, 'Le nom de l\'entreprise est requis'),
   siretNumber: z.string().regex(/^\d{14}$/, 'Le numéro SIRET doit contenir 14 chiffres'),
   vatNumber: z.string().optional(),
@@ -40,7 +44,7 @@ const createFranchiseSchema = z.object({
   postalCode: z.string().regex(/^\d{5}$/, 'Le code postal doit contenir 5 chiffres'),
   region: z.string().min(2, 'La région est requise'),
   contactEmail: z.string().email('Email invalide'),
-  contactPhone: z.string().min(10, 'Le numéro de téléphone est requis'),
+  contactPhone: z.string().min(1, 'Le numéro de téléphone est requis'),
   status: z.enum(['PENDING', 'ACTIVE', 'SUSPENDED', 'TERMINATED']).default('PENDING'),
   entryFee: z.coerce.number().min(0, 'Le droit d\'entrée doit être positif').default(50000),
   entryFeePaid: z.boolean().default(false),
@@ -56,27 +60,49 @@ export default function NewFranchisePage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
-
+  const { data: session, isPending } = useSession()
   const {
     register,
     handleSubmit,
     watch,
-    formState: { errors }
+    formState: { errors, isValid }
   } = useForm<CreateFranchiseFormData>({
     resolver: zodResolver(createFranchiseSchema as any),
     defaultValues: {
       status: 'PENDING',
       entryFee: 50000,
-      entryFeePaid: false,
+      entryFeePaid: false,  
       royaltyRate: 4
     }
   })
 
+   
+  console.log('Erreurs du formulaire:', errors)
+  console.log('Formulaire valide:', isValid)
+  console.log('Valeur contactPhone:', watch('contactPhone'))
+  console.log('Longueur contactPhone:', watch('contactPhone')?.length)
+
   const watchEntryFeePaid = watch('entryFeePaid')
 
   const onSubmit = async (data: CreateFranchiseFormData) => {
+    console.log('Fonction onSubmit appelée avec:', data)
+    
+    if (isPending) {
+      console.log('Session en cours de chargement, abandon')
+      return
+    }
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      console.log('Permissions insuffisantes ou pas de session')
+      router.push('/unauthorized')
+      return
+    }
+    
+    console.log('Début de la soumission...')
     setSubmitting(true)
+    
     try {
+      console.log('Envoi de la requête vers /api/franchises')
       const response = await fetch('/api/franchises', {
         method: 'POST',
         headers: {
@@ -85,11 +111,15 @@ export default function NewFranchisePage() {
         body: JSON.stringify(data)
       })
 
+      console.log('Réponse reçue:', response.status)
+      
       if (response.ok) {
         const result = await response.json()
+        console.log('Franchisé créé avec succès:', result)
         router.push(`/admin/franchises/${result.data.id}`)
       } else {
         const errorData = await response.json()
+        console.error('Erreur API:', errorData)
         alert(`Erreur : ${errorData.error}`)
       }
     } catch (error) {
@@ -458,10 +488,17 @@ export default function NewFranchisePage() {
                 </div>
               </div>
 
-              <CheckboxWithLabel
-                {...register('entryFeePaid')}
-                label="Droit d'entrée déjà payé"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  {...register('entryFeePaid')}
+                  type="checkbox"
+                  id="entryFeePaid"
+                  className="w-4 h-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <label htmlFor="entryFeePaid" className="text-sm font-medium text-gray-700">
+                  Droit d'entrée déjà payé
+                </label>
+              </div>
 
               {watchEntryFeePaid && (
                 <div>
@@ -503,6 +540,47 @@ export default function NewFranchisePage() {
           </Card>
         )}
 
+        {/* Étape 4: Confirmation */}
+        {currentStep === 4 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Confirmation des informations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Informations personnelles</h3>
+                <p><strong>Nom :</strong> {watch('userData.lastName')} {watch('userData.firstName')}</p>
+                <p><strong>Email :</strong> {watch('userData.email')}</p>
+                {watch('userData.phone') && <p><strong>Téléphone :</strong> {watch('userData.phone')}</p>}
+              </div>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Entreprise</h3>
+                <p><strong>Raison sociale :</strong> {watch('businessName')}</p>
+                <p><strong>SIRET :</strong> {watch('siretNumber')}</p>
+                <p><strong>Adresse :</strong> {watch('address')}, {watch('postalCode')} {watch('city')}</p>
+                <p><strong>Région :</strong> {watch('region')}</p>
+                <p><strong>Email :</strong> {watch('contactEmail')}</p>
+                <p><strong>Téléphone :</strong> {watch('contactPhone')}</p>
+              </div>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Contrat</h3>
+                <p><strong>Statut :</strong> {watch('status')}</p>
+                <p><strong>Droit d'entrée :</strong> {watch('entryFee')}€</p>
+                <p><strong>Taux de redevance :</strong> {watch('royaltyRate')}%</p>
+                <p><strong>Droit d'entrée payé :</strong> {watch('entryFeePaid') ? 'Oui' : 'Non'}</p>
+                {watch('entryFeePaid') && watch('entryFeeDate') && (
+                  <p><strong>Date de paiement :</strong> {watch('entryFeeDate')}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Navigation */}
         <div className="flex items-center justify-between">
           <div>
@@ -518,7 +596,7 @@ export default function NewFranchisePage() {
           </div>
           
           <div className="flex items-center gap-2">
-            {currentStep < 3 ? (
+            {currentStep < 4 ? (
               <Button
                 type="button"
                 onClick={() => setCurrentStep(currentStep + 1)}
@@ -530,6 +608,7 @@ export default function NewFranchisePage() {
                 type="submit"
                 disabled={submitting}
                 className="flex items-center gap-2"
+                onClick={() => console.log('Bouton Créer cliqué!')}
               >
                 <Save className="h-4 w-4" />
                 {submitting ? 'Création...' : 'Créer le franchisé'}

@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { UserRole, FranchiseStatus, VehicleStatus, OrderStatus, PaymentStatus, MaintenanceType, MaintenanceStatus } from '@/types/prisma-enums'
+import { FranchiseStatus, VehicleStatus, OrderStatus, PaymentStatus, MaintenanceType, MaintenanceStatus } from '@/types/auth'
 
-// Authentification
+ 
 export const loginSchema = z.object({
   email: z.string().email('Email invalide'),
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères')
@@ -13,10 +13,10 @@ export const registerSchema = z.object({
   firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
   lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
   phone: z.string().optional(),
-  role: z.nativeEnum(UserRole).default(UserRole.FRANCHISEE)
+  role: z.enum(['ADMIN', 'FRANCHISEE']).default('FRANCHISEE')
 })
 
-// Franchisés
+ 
 export const franchiseSchema = z.object({
   businessName: z.string().min(2, 'Le nom de l\'entreprise est requis'),
   siretNumber: z.string().regex(/^\d{14}$/, 'Le numéro SIRET doit contenir 14 chiffres'),
@@ -36,7 +36,7 @@ export const franchiseSchema = z.object({
   contractEndDate: z.string().optional()
 })
 
-// Véhicules
+ 
 export const vehicleSchema = z.object({
   licensePlate: z.string().min(2, 'La plaque d\'immatriculation est requise'),
   brand: z.string().min(2, 'La marque est requise'),
@@ -54,7 +54,7 @@ export const vehicleSchema = z.object({
   franchiseId: z.string().optional()
 })
 
-// Maintenance
+ 
 export const maintenanceSchema = z.object({
   type: z.nativeEnum(MaintenanceType),
   status: z.nativeEnum(MaintenanceStatus).default(MaintenanceStatus.SCHEDULED),
@@ -71,7 +71,7 @@ export const maintenanceSchema = z.object({
   vehicleId: z.string().min(1, 'Le véhicule est requis')
 })
 
-// Produits
+ 
 export const productSchema = z.object({
   name: z.string().min(2, 'Le nom du produit est requis'),
   description: z.string().optional(),
@@ -85,13 +85,13 @@ export const productSchema = z.object({
   categoryId: z.string().min(1, 'La catégorie est requise')
 })
 
-// Catégories de produits
+ 
 export const productCategorySchema = z.object({
   name: z.string().min(2, 'Le nom de la catégorie est requis'),
   description: z.string().optional()
 })
 
-// Entrepôts
+ 
 export const warehouseSchema = z.object({
   name: z.string().min(2, 'Le nom de l\'entrepôt est requis'),
   address: z.string().min(5, 'L\'adresse est requise'),
@@ -103,7 +103,7 @@ export const warehouseSchema = z.object({
   capacity: z.coerce.number().min(1, 'La capacité doit être positive')
 })
 
-// Commandes
+ 
 export const orderSchema = z.object({
   franchiseId: z.string().min(1, 'Le franchisé est requis'),
   requestedDeliveryDate: z.string().optional(),
@@ -119,7 +119,7 @@ export const orderItemSchema = z.object({
   notes: z.string().optional()
 })
 
-// Rapports de vente
+ 
 export const salesReportSchema = z.object({
   reportDate: z.string(),
   dailySales: z.coerce.number().min(0, 'Les ventes doivent être positives'),
@@ -130,7 +130,7 @@ export const salesReportSchema = z.object({
   franchiseId: z.string().min(1, 'Le franchisé est requis')
 })
 
-// Factures
+ 
 export const invoiceSchema = z.object({
   dueDate: z.string(),
   amount: z.coerce.number().min(0, 'Le montant doit être positif'),
@@ -138,7 +138,7 @@ export const invoiceSchema = z.object({
   franchiseId: z.string().min(1, 'Le franchisé est requis')
 })
 
-// Types pour TypeScript
+ 
 export type LoginFormData = z.infer<typeof loginSchema>
 export type RegisterFormData = z.infer<typeof registerSchema>
 export type FranchiseFormData = z.infer<typeof franchiseSchema>

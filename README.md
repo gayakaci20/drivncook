@@ -1,4 +1,4 @@
-![Logo du projet](./public/logo-white.svg)
+![Logo du projet](./public/banner.png)
 
 # DRIV'N COOK
 
@@ -9,7 +9,7 @@ Plateforme de gestion dédiée aux franchisés de food trucks. Un espace sécuri
 - **Frontend** : React 19, Next.js 15
 - **Backend** : Next.js API Routes
 - **Base de données** : Postgress avec Prisma ORM
-- **Authentification** : NextAuth.js
+- **Authentification** : Better-Auth
 - **Styling** : Tailwind CSS 4
 - **UI Components** : Radix UI, Lucide React
 - **Graphiques** : ApexCharts

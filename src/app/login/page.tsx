@@ -1,17 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn, getSession } from 'next-auth/react'
+import { signIn } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod' 
 import { loginSchema, type LoginFormData } from '../../lib/validations'
 import Image from 'next/image'
-import Footer from '../../components/footer'
+import Footer from '@/components/ui/footer'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
 import { useDarkMode } from '@/hooks/use-dark-mode'
-
+import { ExtendedUser } from '@/types/auth'
+  
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800', '900'],
@@ -35,25 +36,46 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const result = await signIn('credentials', {
+      console.log('Tentative de connexion avec:', { email: data.email })
+      
+      const result = await signIn.email({
         email: data.email,
         password: data.password,
-        redirect: false
+        callbackURL: '/'
       })
 
-      if (result?.error) {
-        setError('Email ou mot de passe incorrect')
+      console.log('Résultat de connexion:', result)
+
+      if (result.error) {
+        console.error('Erreur de connexion:', result.error)
+        if (result.error.message?.includes('Invalid credentials')) {
+          setError('Email ou mot de passe incorrect')
+        } else if (result.error.message?.includes('User not found')) {
+          setError('Aucun compte trouvé avec cette adresse email')
+        } else if (result.error.message?.includes('Account disabled')) {
+          setError('Compte désactivé. Veuillez contacter l\'administrateur.')
+        } else {
+          setError('Email ou mot de passe incorrect')
+        }
         return
       }
 
-      // Récupérer la session pour rediriger selon le rôle
-      const session = await getSession()
-      if (session?.user?.role === 'FRANCHISEE') {
-        router.push('/franchise/dashboard')
+      if (result.data?.user) {
+        const userRole = (result.data.user as ExtendedUser).role
+        console.log('Utilisateur connecté avec rôle:', userRole)
+        
+        if (userRole === 'ADMIN') {
+          router.push('/admin/dashboard')
+        } else if (userRole === 'FRANCHISEE') {
+          router.push('/franchise/dashboard')
+        } else {
+          router.push('/')
+        }
       } else {
-        router.push('/admin/dashboard')
+        setError('Erreur lors de la récupération des informations utilisateur')
       }
     } catch (error) {
+      console.error('Erreur de connexion:', error)
       setError('Une erreur est survenue lors de la connexion')
     } finally {
       setIsLoading(false)
@@ -186,30 +208,12 @@ export default function LoginPage() {
                       </button>
                     </div>
                   </form>
-                  {/* Demo accounts */}
-                  <div className="mt-8 p-4 rounded-xl bg-gray-50/50 border border-gray-200/50 dark:bg-neutral-800/30 dark:border-neutral-700/50">
-                    <div className="text-center">
-                      <div className="text-sm font-medium text-gray-700 dark:text-neutral-300 mb-3">
-                        Comptes de démonstration
-                      </div>
-                      <div className="space-y-2 text-xs text-gray-600 dark:text-neutral-400">
-                        <div className="flex justify-between items-center p-2 rounded-lg bg-white/60 dark:bg-neutral-900/40">
-                          <span className="font-medium">Admin:</span>
-                          <span className="font-mono">admin@drivncook.fr / password123</span>
-                        </div>
-                        <div className="flex justify-between items-center p-2 rounded-lg bg-white/60 dark:bg-neutral-900/40">
-                          <span className="font-medium">Franchisé:</span>
-                          <span className="font-mono">jean.dupont@example.com / password123</span>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </div>  
       <Footer />
     </>
   )

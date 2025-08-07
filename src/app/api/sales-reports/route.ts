@@ -10,9 +10,10 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { salesReportSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/sales-reports - Lister les rapports de vente
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -22,12 +23,12 @@ export const GET = withAuth(
     const endDate = searchParams.get('endDate') || ''
     const paymentStatus = searchParams.get('paymentStatus') || ''
 
-    // Construire les filtres
+     
     const where: any = {}
     
-    // Si l'utilisateur est un franchisé, filtrer par son franchise
-    if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
-      where.franchiseId = session.user.franchiseId
+     
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
+      where.franchiseId = (session.user as ExtendedUser).franchiseId
     } else if (franchiseId) {
       where.franchiseId = franchiseId
     }
@@ -51,7 +52,7 @@ export const GET = withAuth(
       where.paymentStatus = paymentStatus
     }
 
-    // Récupérer les rapports avec pagination
+     
     const [salesReports, total] = await Promise.all([
       prisma.salesReport.findMany({
         where,
@@ -84,25 +85,25 @@ export const GET = withAuth(
     const response = createPaginationResponse(salesReports, total, page || 1, limit || 10)
     return createSuccessResponse(response)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// POST /api/sales-reports - Créer un nouveau rapport de vente
+ 
 export const POST = withAuth(
   withValidation(
     salesReportSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
       let franchiseId = validatedData.franchiseId
 
-      // Si l'utilisateur est un franchisé, utiliser son franchiseId
-      if (session.user.role === UserRole.FRANCHISEE) {
-        if (!session.user.franchiseId) {
+       
+      if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE) {
+        if (!(session.user as ExtendedUser).franchiseId) {
           return createErrorResponse('Franchisé non associé à une franchise', 400)
         }
-        franchiseId = session.user.franchiseId
+        franchiseId = (session.user as ExtendedUser).franchiseId
       }
 
-      // Vérifier que la franchise existe
+       
       const franchise = await prisma.franchise.findUnique({
         where: { id: franchiseId }
       })
@@ -111,7 +112,7 @@ export const POST = withAuth(
         return createErrorResponse('Franchise introuvable', 404)
       }
 
-      // Vérifier qu'il n'y a pas déjà un rapport pour cette date
+       
       const existingReport = await prisma.salesReport.findUnique({
         where: {
           franchiseId_reportDate: {
@@ -125,16 +126,16 @@ export const POST = withAuth(
         return createErrorResponse('Un rapport de vente existe déjà pour cette date', 400)
       }
 
-      // Calculer la redevance (4% du CA)
+       
       const royaltyAmount = validatedData.dailySales * (Number(franchise.royaltyRate) / 100)
 
-      // Calculer le ticket moyen si pas fourni
+       
       let averageTicket = validatedData.averageTicket
       if (!averageTicket && validatedData.transactionCount > 0) {
         averageTicket = validatedData.dailySales / validatedData.transactionCount
       }
 
-      // Créer le rapport de vente
+       
       const salesReport = await prisma.salesReport.create({
         data: {
           franchiseId: franchiseId,
@@ -145,7 +146,7 @@ export const POST = withAuth(
           location: validatedData.location,
           notes: validatedData.notes,
           royaltyAmount: royaltyAmount,
-          createdById: session.user.id
+          createdById: (session.user as ExtendedUser).id
         },
         include: {
           franchise: {
@@ -168,19 +169,19 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'sales_reports',
           recordId: salesReport.id,
           newValues: JSON.stringify(salesReport),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(salesReport, 'Rapport de vente créé avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

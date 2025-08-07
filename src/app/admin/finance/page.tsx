@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { Badge } from '@/src/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   DollarSign, 
   Plus, 
@@ -26,6 +26,10 @@ import {
   User,
   CreditCard
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { useSession } from '@/lib/auth-client'
+import { UserRole } from '@/types/prisma-enums'
+import { safeFetchJson } from '@/lib/utils'
 
 interface Invoice {
   id: string
@@ -101,10 +105,17 @@ export default function AdminFinancePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('month')
+  const { data: session, isPending } = useSession()
 
   useEffect(() => {
+    if (isPending) return
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      router.push('/unauthorized')
+      return
+    }
     fetchFinancialData()
-  }, [searchTerm, statusFilter, periodFilter])
+  }, [searchTerm, statusFilter, periodFilter, session, isPending, router])
 
   const fetchFinancialData = async () => {
     try {
@@ -211,7 +222,7 @@ export default function AdminFinancePage() {
     }
   }
 
-  // Calculer les statistiques
+   
   const totalInvoices = invoices.length
   const paidInvoices = invoices.filter(i => i.paymentStatus === 'PAID').length
   const overdueInvoices = invoices.filter(i => i.paymentStatus === 'PENDING' && isOverdue(i.dueDate)).length
@@ -225,7 +236,7 @@ export default function AdminFinancePage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto"></div>
           <p className="mt-2 text-gray-600">Chargement...</p>
         </div>
       </div>

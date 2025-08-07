@@ -1,10 +1,49 @@
 'use client'
 
-import Navbar from '../components/navbar'
-import Footer from '../components/footer'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession } from '@/lib/auth-client'
+import Navbar from '@/components/ui/navbar'
+import Footer from '@/components/ui/footer'
 import { ArrowRightIcon, ShoppingCartIcon, TruckIcon, ShieldIcon, CircleHelpIcon } from 'lucide-react'
 
 export default function Home() {
+  const router = useRouter()
+  const { data: session, isPending } = useSession()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (isMounted && !isPending && session?.user) {
+      const userRole = (session.user as any).role
+      if (userRole === 'ADMIN') {
+        router.push('/admin/dashboard')
+      } else if (userRole === 'FRANCHISEE') {
+        router.push('/franchise/dashboard')
+      }
+    }
+  }, [session, isPending, router, isMounted])
+
+  // Show loading state until mounted and session is resolved
+  if (!isMounted || isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
+
+  // Show loading state while redirecting authenticated users
+  if (session?.user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      </div>
+    )
+  }
   return (
     <>
       <Navbar />
@@ -153,8 +192,8 @@ export default function Home() {
           <div className="absolute right-[-10%] bottom-[-20%] h-[28rem] w-[28rem] rounded-full bg-white/5 blur-3xl" />
         </div>
 
-        <div className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=%27http://www.w3.org/2000/svg%27 width=%27160%27 height=%27160%27 viewBox=%270 0 160 160%27><filter id=%27n%27 x=%270%27 y=%270%27><feTurbulence type=%27fractalNoise%27 baseFrequency=%270.7%27 numOctaves=%274%27 stitchTiles=%27stitch%27/></filter><rect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27 opacity=%270.35%27/></svg>')" }} />
-          <svg className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 h-[24rem] opacity-20" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay">
+          <svg className="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 h-[24rem] opacity-20" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg"> 
             <g transform="translate(300,300)">
               <path d="M120,-146.8C158.2,-116.4,192.2,-79.8,205.2,-36.6C218.2,6.5,210.3,56.1,187.1,98.9C163.9,141.6,125.5,177.5,82,194.1C38.5,210.7,-10.2,208,-53.6,192.2C-97,176.4,-135.1,147.4,-162.1,111.7C-189.1,76.1,-204.9,33.8,-205.2,-9.7C-205.6,-53.3,-190.6,-96.9,-163.4,-127.6C-136.2,-158.2,-96.8,-175.8,-57.1,-197.7C-17.5,-219.6,22.4,-245.8,60.1,-238.7C97.7,-231.6,133.2,-191.2,120,-146.8Z" fill="url(#g1)" />
               <defs>
@@ -165,6 +204,8 @@ export default function Home() {
               </defs>
             </g>
           </svg>
+        </div>
+
         <div className="relative mx-auto max-w-[85rem] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
           <div className="mx-auto max-w-2xl text-center">
             <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">

@@ -7,7 +7,7 @@ import { z } from 'zod'
 import Image from 'next/image'
 import Link from 'next/link'
 import { PhoneIcon, MapPinIcon, MailIcon, ClockIcon, CheckCircleIcon, ArrowRightIcon, Loader2Icon } from 'lucide-react'
-import Footer from '../../components/footer'
+import Footer from '@/components/ui/footer'
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
@@ -40,7 +40,7 @@ export default function ContactPage() {
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true)
     
-    // Simulation d'envoi du formulaire
+     
     await new Promise(resolve => setTimeout(resolve, 2000))
     
     console.log('Contact form data:', data)
@@ -48,7 +48,7 @@ export default function ContactPage() {
     setIsSubmitting(false)
     reset()
     
-    // Reset success message after 5 seconds
+     
     setTimeout(() => setIsSubmitted(false), 5000)
   }
 

@@ -1,16 +1,24 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
+
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { Badge } from '@/src/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import dynamic from 'next/dynamic'
 
-// Import dynamique pour éviter les erreurs SSR avec Leaflet
+ 
 const FranchiseMap = dynamic(() => import('@/components/maps/FranchiseMap'), {
   ssr: false,
   loading: () => (
@@ -25,7 +33,6 @@ const FranchiseMap = dynamic(() => import('@/components/maps/FranchiseMap'), {
 import { 
   Users, 
   Plus, 
-  Search, 
   Filter,
   Eye,
   Edit,
@@ -38,8 +45,17 @@ import {
   Calendar,
   DollarSign,
   Truck,
-  MoreHorizontal
+  MoreHorizontal,
+  ChevronDown,
+  Check,
+  Clock,
+  Pause,
+  X,
+  SearchIcon
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
+import { safeFetchJson } from '@/lib/utils'
 
 interface Franchise {
   id: string
@@ -52,6 +68,8 @@ interface Franchise {
   region: string
   contactEmail: string
   contactPhone: string
+  kbisDocument: string | null
+  idCardDocument: string | null
   status: string
   entryFee: number
   entryFeePaid: boolean
@@ -84,7 +102,7 @@ interface Franchise {
 }
 
 export default function AdminFranchisesPage() {
-  const { data: session } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
   const [franchises, setFranchises] = useState<Franchise[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,27 +112,26 @@ export default function AdminFranchisesPage() {
   const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (isPending) return
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      router.push('/unauthorized')
+      return
+    }
     console.log('Session data:', session)
-    console.log('User role:', session?.user?.role)
+    console.log('User role:', (session?.user as ExtendedUser).role)
     if (session) {
       fetchFranchises()
     } else {
       console.log('No session found')
     }
-  }, [searchTerm, statusFilter, session])
+  }, [searchTerm, statusFilter, session, isPending, router])
 
   const fetchFranchises = async () => {
     try {
-      if (!session?.user?.role) {
+      if (!session?.user || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
         console.error('No user role found in session')
         setAuthError('Aucun rôle utilisateur trouvé dans la session')
-        setLoading(false)
-        return
-      }
-
-      if (!['SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
-        console.error('User role not authorized:', session.user.role)
-        setAuthError(`Rôle non autorisé: ${session.user.role}. Seuls les SUPER_ADMIN et ADMIN peuvent accéder à cette page.`)
         setLoading(false)
         return
       }
@@ -126,8 +143,13 @@ export default function AdminFranchisesPage() {
       if (statusFilter) params.append('status', statusFilter)
       
       console.log('Fetching franchises with params:', params.toString())
-      console.log('User role:', session.user.role)
-      const response = await fetch(`/api/franchises?${params.toString()}`)
+      console.log('User role:', (session.user as ExtendedUser).role)
+      const response = await fetch(`/api/franchises?${params.toString()}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
       console.log('Response status:', response.status)
       
       if (response.ok) {
@@ -322,7 +344,7 @@ export default function AdminFranchisesPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative group">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 group-focus-within:text-gray-700" />
               <input
                 type="text"
                 placeholder="Rechercher par nom, email, SIRET..."
@@ -332,20 +354,43 @@ export default function AdminFranchisesPage() {
               />
             </div>
             
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-white/80" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
-              >
-                <option value="">Tous les statuts</option>
-                <option value="ACTIVE">Actifs</option>
-                <option value="PENDING">En attente</option>
-                <option value="SUSPENDED">Suspendus</option>
-                <option value="TERMINATED">Terminés</option>
-              </select>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-10 rounded-xl">
+                  <Filter className="h-4 w-4" />
+                  {statusFilter ? (
+                    statusFilter === 'ACTIVE' ? 'Actifs' :
+                    statusFilter === 'PENDING' ? 'En attente' :
+                    statusFilter === 'SUSPENDED' ? 'Suspendus' :
+                    statusFilter === 'TERMINATED' ? 'Terminés' : statusFilter
+                  ) : 'Tous les statuts'}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatusFilter('')}>
+                  <Filter className="h-4 w-4" />
+                  Tous les statuts
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setStatusFilter('ACTIVE')}>
+                  <Check className="h-4 w-4 text-green-600" />
+                  Actifs
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('PENDING')}>
+                  <Clock className="h-4 w-4 text-yellow-600" />
+                  En attente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('SUSPENDED')}>
+                  <Pause className="h-4 w-4 text-orange-600" />
+                  Suspendus
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('TERMINATED')}>
+                  <X className="h-4 w-4 text-red-600" />
+                  Terminés
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>
@@ -390,13 +435,7 @@ export default function AdminFranchisesPage() {
                         <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                           <div className="space-y-2">
                             <p className="text-lg font-medium">Aucun franchisé trouvé</p>
-                            <div className="text-sm space-y-1">
-                              <p><strong>Session:</strong> {session ? '✅ Connecté' : '❌ Non connecté'}</p>
-                              <p><strong>Rôle:</strong> {session?.user?.role || 'Non défini'}</p>
-                              <p><strong>Email:</strong> {session?.user?.email || 'Non défini'}</p>
-                              <p><strong>Erreur d'auth:</strong> {authError || 'Aucune'}</p>
-                              <p className="mt-2">Vérifiez la console (F12) pour plus de détails</p>
-                            </div>
+                            <p className="text-sm text-gray-500">Vérifiez les filtres et la recherche</p>
                           </div>
                         </td>
                       </tr>
@@ -466,6 +505,20 @@ export default function AdminFranchisesPage() {
                               </div>
                             </div>
                             {getEntryFeeStatus(franchise.entryFeePaid, franchise.entryFeeDate)}
+                            {/* Document status indicator */}
+                            <div className="flex items-center gap-1 mt-1">
+                              {franchise.kbisDocument ? (
+                                <div className="w-2 h-2 bg-green-500 rounded-full" title="KBIS fourni" />
+                              ) : (
+                                <div className="w-2 h-2 bg-red-500 rounded-full" title="KBIS manquant" />
+                              )}
+                              {franchise.idCardDocument ? (
+                                <div className="w-2 h-2 bg-green-500 rounded-full" title="Carte d'identité fournie" />
+                              ) : (
+                                <div className="w-2 h-2 bg-red-500 rounded-full" title="Carte d'identité manquante" />
+                              )}
+                              <span className="text-xs text-gray-500 ml-1">Doc</span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-3 hidden xl:table-cell">
@@ -480,37 +533,41 @@ export default function AdminFranchisesPage() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/admin/franchises/${franchise.id}`)}
-                              className="h-8 w-8 p-0 rounded-lg"
-                              title="Voir les détails"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/admin/franchises/${franchise.id}/edit`)}
-                              className="h-8 w-8 p-0 rounded-lg hidden md:inline-flex"
-                              title="Modifier"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {session?.user?.role === 'SUPER_ADMIN' && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDelete(franchise.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0 rounded-lg hidden lg:inline-flex"
-                                title="Supprimer"
+                                className="h-8 w-8 p-0 rounded-lg"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => router.push(`/admin/franchises/${franchise.id}`)}>
+                                <Eye className="h-4 w-4" />
+                                Voir les détails
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => router.push(`/admin/franchises/${franchise.id}/edit`)}>
+                                <Edit className="h-4 w-4" />
+                                Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => router.push(`/admin/franchises/${franchise.id}/documents`)}>
+                                <Download className="h-4 w-4" />
+                                Documents
+                              </DropdownMenuItem>
+                              {(session?.user as ExtendedUser).role === UserRole.ADMIN && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleDelete(franchise.id)} variant="destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     ))}
@@ -650,12 +707,33 @@ export default function AdminFranchisesPage() {
                 {selectedFranchises.length} franchisé{selectedFranchises.length > 1 ? 's' : ''} sélectionné{selectedFranchises.length > 1 ? 's' : ''}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="rounded-xl">
-                  Exporter sélection
-                </Button>
-                <Button variant="outline" size="sm" className="rounded-xl">
-                  Envoyer email
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="rounded-xl">
+                      Actions groupées
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <Download className="h-4 w-4" />
+                      Exporter sélection
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Mail className="h-4 w-4" />
+                      Envoyer email
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <Calendar className="h-4 w-4" />
+                      Programmer relance
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Building2 className="h-4 w-4" />
+                      Changer statut
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button 
                   variant="outline" 
                   size="sm"

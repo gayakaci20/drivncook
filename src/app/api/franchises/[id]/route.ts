@@ -1,34 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions, canAccessFranchise } from '@/lib/auth'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/franchises/[id] - Récupérer un franchisé spécifique
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {    
-    // Vérifier l'authentification
-    const session = await getServerSession(authOptions)
+interface RouteParams {
+  params: Promise<{
+    id: string
+  }>
+}
+
+ 
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+     
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
     
     if (!session?.user) {
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
-
-    const { id } = await params
-
-    // Vérifier les permissions avec la fonction utilitaire
-    if (!canAccessFranchise(session.user.role, session.user.franchiseId, id)) {
+    
+    if ((session.user as ExtendedUser).role !== UserRole.ADMIN) {
       return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
     }
 
-    // Récupérer le franchisé avec toutes les relations
-    const franchise: any = await prisma.franchise.findUnique({
-      where: {
-        id: id
-      },
+    const resolvedParams = await params
+    const franchiseId = resolvedParams.id
+
+     
+    const franchise = await prisma.franchise.findUnique({
+      where: { id: franchiseId },
       include: {
         user: {
           select: {
@@ -48,51 +52,47 @@ export async function GET(
             brand: true,
             model: true,
             year: true,
-            vin: true,
             status: true,
-            purchaseDate: true,
-            purchasePrice: true,
             currentMileage: true,
             lastInspectionDate: true,
-            nextInspectionDate: true,
-            insuranceNumber: true,
-            insuranceExpiry: true
+            nextInspectionDate: true
           }
         },
         orders: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
+            orderNumber: true,
             status: true,
+            orderDate: true,
             totalAmount: true,
-            requestedDeliveryDate: true,
-            createdAt: true
-          }
+            isFromDrivnCook: true
+          },
+          orderBy: { orderDate: 'desc' },
+          take: 10  
         },
         salesReports: {
-          take: 5,
-          orderBy: { reportDate: 'desc' },
           select: {
             id: true,
             reportDate: true,
             dailySales: true,
             transactionCount: true,
-            averageTicket: true,
-            location: true
-          }
+            royaltyAmount: true,
+            paymentStatus: true
+          },
+          orderBy: { reportDate: 'desc' },
+          take: 10  
         },
         invoices: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
-            amount: true,
-            paymentStatus: true,
+            invoiceNumber: true,
+            issueDate: true,
             dueDate: true,
-            description: true,
-            createdAt: true
-          }
+            amount: true,
+            paymentStatus: true
+          },
+          orderBy: { issueDate: 'desc' },
+          take: 10  
         },
         _count: {
           select: {
@@ -106,23 +106,17 @@ export async function GET(
     })
 
     if (!franchise) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Franchisé non trouvé' 
+      return NextResponse.json({
+        success: false,
+        error: 'Franchisé introuvable'
       }, { status: 404 })
     }
 
-    // Convertir les BigInt en nombres pour éviter les erreurs de sérialisation
+     
     const serializedFranchise = {
       ...franchise,
       entryFee: Number(franchise.entryFee),
       royaltyRate: Number(franchise.royaltyRate),
-      vehicles: franchise.vehicles.map((vehicle: any) => ({
-        ...vehicle,
-        year: Number(vehicle.year),
-        purchasePrice: Number(vehicle.purchasePrice),
-        currentMileage: vehicle.currentMileage ? Number(vehicle.currentMileage) : null
-      })),
       orders: franchise.orders.map((order: any) => ({
         ...order,
         totalAmount: Number(order.totalAmount)
@@ -130,8 +124,7 @@ export async function GET(
       salesReports: franchise.salesReports.map((report: any) => ({
         ...report,
         dailySales: Number(report.dailySales),
-        transactionCount: Number(report.transactionCount),
-        averageTicket: Number(report.averageTicket)
+        royaltyAmount: Number(report.royaltyAmount)
       })),
       invoices: franchise.invoices.map((invoice: any) => ({
         ...invoice,
@@ -151,66 +144,79 @@ export async function GET(
     })
 
   } catch (error) {
+    console.error('Erreur dans GET /api/franchises/[id]:', error)
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Erreur serveur interne'
+      error: error instanceof Error ? error.message : 'Erreur serveur interne',
+      details: process.env.NODE_ENV === 'development' ? error : undefined
     }, { status: 500 })
   }
 }
 
-// DELETE /api/franchises/[id] - Supprimer un franchisé
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+ 
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    // Vérifier l'authentification
-    const session = await getServerSession(authOptions)
+     
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
     
     if (!session?.user) {
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
-
-    // Seuls les SUPER_ADMIN peuvent supprimer
-    if (session.user.role !== 'SUPER_ADMIN') {
+    
+    if ((session.user as ExtendedUser).role !== UserRole.ADMIN) {
       return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
     }
 
-    const { id } = await params
+    const resolvedParams = await params
+    const franchiseId = resolvedParams.id
 
-    // Vérifier que le franchisé existe
-    const franchise = await prisma.franchise.findUnique({
-      where: { id },
+     
+    const existingFranchise = await prisma.franchise.findUnique({
+      where: { id: franchiseId },
       include: { user: true }
     })
 
-    if (!franchise) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Franchisé non trouvé' 
+    if (!existingFranchise) {
+      return NextResponse.json({
+        success: false,
+        error: 'Franchisé introuvable'
       }, { status: 404 })
     }
 
-    // Supprimer le franchisé et l'utilisateur associé dans une transaction
-    await prisma.$transaction(async (tx) => {
-      // Supprimer le franchisé (cela supprimera automatiquement les relations)
+     
+    await prisma.$transaction(async (tx: any) => {
+       
       await tx.franchise.delete({
-        where: { id }
+        where: { id: franchiseId }
       })
 
-      // Supprimer l'utilisateur associé
+       
       await tx.user.delete({
-        where: { id: franchise.userId }
+        where: { id: existingFranchise.userId }
       })
 
-      // Créer un log d'audit
+       
       await tx.auditLog.create({
         data: {
           action: 'DELETE',
           tableName: 'franchises',
-          recordId: id,
-          oldValues: JSON.stringify(franchise),
-          userId: session.user.id
+          recordId: franchiseId,
+          oldValues: JSON.stringify({
+            franchise: {
+              id: existingFranchise.id,
+              businessName: existingFranchise.businessName,
+              status: existingFranchise.status
+            },
+            user: {
+              id: existingFranchise.user.id,
+              email: existingFranchise.user.email,
+              firstName: existingFranchise.user.firstName,
+              lastName: existingFranchise.user.lastName
+            }
+          }),
+          userId: (session.user as ExtendedUser).id
         }
       })
     })
@@ -221,9 +227,11 @@ export async function DELETE(
     })
 
   } catch (error) {
+    console.error('Erreur dans DELETE /api/franchises/[id]:', error)
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Erreur serveur interne'
+      error: error instanceof Error ? error.message : 'Erreur serveur interne',
+      details: process.env.NODE_ENV === 'development' ? error : undefined
     }, { status: 500 })
   }
 }

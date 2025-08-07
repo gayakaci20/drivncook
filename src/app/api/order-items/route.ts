@@ -8,16 +8,17 @@ import {
   createErrorResponse
 } from '@/lib/api-utils'
 import { orderItemSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// POST /api/order-items - Ajouter un article à une commande
+ 
 export const POST = withAuth(
   withValidation(
     orderItemSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
       const { orderId, productId, warehouseId, quantity, unitPrice, notes } = validatedData
 
-      // Vérifier que la commande existe et appartient au bon utilisateur
+       
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: { franchise: true }
@@ -27,12 +28,12 @@ export const POST = withAuth(
         return createErrorResponse('Commande introuvable', 404)
       }
 
-      // Vérifier les permissions
-      if (session.user.role === UserRole.FRANCHISEE && order.franchiseId !== session.user.franchiseId) {
+       
+      if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && order.franchiseId !== (session.user as ExtendedUser).franchiseId) {
         return createErrorResponse('Permission refusée', 403)
       }
 
-      // Vérifier que le produit et l'entrepôt existent
+       
       const [product, warehouse] = await Promise.all([
         prisma.product.findUnique({ where: { id: productId } }),
         prisma.warehouse.findUnique({ where: { id: warehouseId } })
@@ -46,7 +47,7 @@ export const POST = withAuth(
         return createErrorResponse('Entrepôt introuvable', 404)
       }
 
-      // Vérifier la disponibilité du stock
+       
       const stock = await prisma.stock.findUnique({
         where: {
           productId_warehouseId: {
@@ -60,10 +61,10 @@ export const POST = withAuth(
         return createErrorResponse('Stock insuffisant', 400)
       }
 
-      // Calculer le prix total
+       
       const totalPrice = unitPrice * quantity
 
-      // Créer l'article de commande
+       
       const orderItem = await prisma.orderItem.create({
         data: {
           orderId,
@@ -91,7 +92,7 @@ export const POST = withAuth(
         }
       })
 
-      // Réserver le stock
+       
       await prisma.stock.update({
         where: {
           productId_warehouseId: {
@@ -106,7 +107,7 @@ export const POST = withAuth(
         }
       })
 
-      // Mettre à jour le montant total de la commande
+       
       const totalOrderAmount = await prisma.orderItem.aggregate({
         where: { orderId },
         _sum: { totalPrice: true }
@@ -119,24 +120,24 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'order_items',
           recordId: orderItem.id,
           newValues: JSON.stringify(orderItem),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(orderItem, 'Article ajouté à la commande avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// GET /api/order-items?orderId=... - Lister les articles d'une commande
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -146,7 +147,7 @@ export const GET = withAuth(
       return createErrorResponse('orderId requis', 400)
     }
 
-    // Vérifier que la commande existe et les permissions
+     
     const order = await prisma.order.findUnique({
       where: { id: orderId }
     })
@@ -155,11 +156,11 @@ export const GET = withAuth(
       return createErrorResponse('Commande introuvable', 404)
     }
 
-    if (session.user.role === UserRole.FRANCHISEE && order.franchiseId !== session.user.franchiseId) {
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && order.franchiseId !== (session.user as ExtendedUser).franchiseId) {
       return createErrorResponse('Permission refusée', 403)
     }
 
-    // Récupérer les articles de la commande
+     
     const orderItems = await prisma.orderItem.findMany({
       where: { orderId },
       include: {
@@ -191,5 +192,5 @@ export const GET = withAuth(
 
     return createSuccessResponse(orderItems)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

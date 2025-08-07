@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { Badge } from '@/src/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   Truck, 
   Plus, 
@@ -24,7 +31,11 @@ import {
   Building2,
   User,
   Fuel,
-  Settings
+  Settings,
+  ChevronDown,
+  MoreHorizontal,
+  Pause,
+  X
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 
@@ -150,7 +161,7 @@ export default function AdminVehiclesPage() {
   }
 
   const getMaintenanceAlert = (vehicle: Vehicle) => {
-    // Vérifier si une maintenance est due
+     
     const nextInspection = vehicle.nextInspectionDate ? new Date(vehicle.nextInspectionDate) : null
     const insuranceExpiry = vehicle.insuranceExpiry ? new Date(vehicle.insuranceExpiry) : null
     const today = new Date()
@@ -184,7 +195,7 @@ export default function AdminVehiclesPage() {
     return alerts
   }
 
-  // Calculer les statistiques
+   
   const stats = {
     total: vehicles.length,
     assigned: vehicles.filter(v => v.status === 'ASSIGNED').length,
@@ -309,20 +320,43 @@ export default function AdminVehiclesPage() {
               />
             </div>
             
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
-              >
-                <option value="">Tous les statuts</option>
-                <option value="ASSIGNED">Assignés</option>
-                <option value="AVAILABLE">Disponibles</option>
-                <option value="MAINTENANCE">En maintenance</option>
-                <option value="OUT_OF_SERVICE">Hors service</option>
-              </select>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-10 rounded-xl">
+                  <Filter className="h-4 w-4" />
+                  {statusFilter ? (
+                    statusFilter === 'ASSIGNED' ? 'Assignés' :
+                    statusFilter === 'AVAILABLE' ? 'Disponibles' :
+                    statusFilter === 'MAINTENANCE' ? 'En maintenance' :
+                    statusFilter === 'OUT_OF_SERVICE' ? 'Hors service' : statusFilter
+                  ) : 'Tous les statuts'}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatusFilter('')}>
+                  <Filter className="h-4 w-4" />
+                  Tous les statuts
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setStatusFilter('ASSIGNED')}>
+                  <User className="h-4 w-4 text-blue-600" />
+                  Assignés
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('AVAILABLE')}>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  Disponibles
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('MAINTENANCE')}>
+                  <Wrench className="h-4 w-4 text-orange-600" />
+                  En maintenance
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('OUT_OF_SERVICE')}>
+                  <X className="h-4 w-4 text-red-600" />
+                  Hors service
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>

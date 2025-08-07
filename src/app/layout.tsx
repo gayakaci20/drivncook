@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   creator: "Gaya KACI",
   publisher: "Gaya KACI",
   robots: "index, follow",
-  metadataBase: new URL('https://drivncook.vercel.app'),
+  metadataBase: new URL('https://drivncook.vercel.app'),   
   icons: {
     icon: [
       { url: '/favicon.png', type: 'image/png', sizes: '32x32' },
@@ -30,8 +31,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    url: 'https://drivncook.vercel.app',
+    locale: 'fr_FR',
+    url: 'https://drivncook.vercel.app', 
     title: 'DRIV\'N COOK',
     description: 'DRIV\'N COOK',
     siteName: 'DRIV\'N COOK',
@@ -53,10 +54,10 @@ export const metadata: Metadata = {
   },
   manifest: '/manifest.json',
   alternates: {
-    canonical: 'https://drivncook.vercel.app',
+    canonical: 'https://drivncook.vercel.app', 
   },
   other: {
-    'github-repo': 'https://github.com/gayakaci20/drivncook',
+    'github-repo': 'https://github.com/gayakaci20/drivncook', 
   },
 };
 
@@ -66,13 +67,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <body className={`${poppins.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <main>
-            {children}
-          </main>
-        </AuthProvider>
+        <ThemeProvider
+          defaultTheme="system"
+          storageKey="drivncook-theme"
+        >
+          <AuthProvider>
+            <main>
+              {children}
+            </main>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

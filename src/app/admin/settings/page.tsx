@@ -1,8 +1,9 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,8 @@ import {
   Check,
   X
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
 
 interface AppSettings {
   general: {
@@ -74,7 +77,7 @@ interface AppSettings {
 }
 
 export default function AdminSettingsPage() {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -84,20 +87,20 @@ export default function AdminSettingsPage() {
   const [unsavedChanges, setUnsavedChanges] = useState(false)
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (isPending) return
 
-    if (!session || (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN')) {
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
       router.push('/unauthorized')
       return
     }
 
     fetchSettings()
-  }, [session, status, router])
+  }, [session, isPending, router])
 
   const fetchSettings = async () => {
     try {
-      // Pour l'instant, on utilise des valeurs par défaut
-      // TODO: Implémenter l'API pour récupérer les paramètres
+       
+       
       const defaultSettings: AppSettings = {
         general: {
           companyName: "Driv'n Cook",
@@ -168,8 +171,8 @@ export default function AdminSettingsPage() {
 
     setSaving(true)
     try {
-      // TODO: Implémenter l'API pour sauvegarder les paramètres
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulation
+       
+      await new Promise(resolve => setTimeout(resolve, 1000))  
       setUnsavedChanges(false)
       alert('Paramètres sauvegardés avec succès!')
     } catch (error) {
@@ -183,11 +186,11 @@ export default function AdminSettingsPage() {
   const resetSettings = async () => {
     if (confirm('Êtes-vous sûr de vouloir réinitialiser les paramètres aux valeurs par défaut ?')) {
       await fetchSettings()
-      setUnsavedChanges(false)
+      setUnsavedChanges(false)  
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (isPending || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

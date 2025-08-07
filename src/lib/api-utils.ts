@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from './auth'
-import { UserRole } from '@/types/prisma-enums'
+import { auth } from './auth'
+import { headers } from 'next/headers'
 import { ZodError } from 'zod'
+import { UserRole } from '@/types/prisma-enums'
 
-// Types pour les réponses API
+
+ 
 export interface ApiResponse<T = any> {
   success: boolean
   data?: T
@@ -12,7 +13,7 @@ export interface ApiResponse<T = any> {
   message?: string
 }
 
-// Fonction pour créer une réponse d'erreur standardisée
+ 
 export function createErrorResponse(message: string, status: number = 400): NextResponse {
   return NextResponse.json(
     { success: false, error: message },
@@ -20,7 +21,7 @@ export function createErrorResponse(message: string, status: number = 400): Next
   )
 }
 
-// Fonction pour créer une réponse de succès standardisée
+ 
 export function createSuccessResponse<T>(data: T, message?: string): NextResponse {
   return NextResponse.json({
     success: true,
@@ -29,16 +30,18 @@ export function createSuccessResponse<T>(data: T, message?: string): NextRespons
   })
 }
 
-// Middleware d'authentification pour les routes API
-export async function withAuth(handler: Function, requiredRoles?: UserRole[]) {
+ 
+export function withAuth(handler: Function, requiredRoles?: UserRole[]) {
   return async (request: Request, context?: any) => {
-    const session = await getServerSession(authOptions)
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
 
     if (!session?.user) {
       return createErrorResponse('Non authentifié', 401)
     }
 
-    if (requiredRoles && !requiredRoles.includes(session.user.role)) {
+    if (requiredRoles && !requiredRoles.includes(session.user.role as UserRole)) {
       return createErrorResponse('Permissions insuffisantes', 403)
     }
 
@@ -46,7 +49,7 @@ export async function withAuth(handler: Function, requiredRoles?: UserRole[]) {
   }
 }
 
-// Middleware de validation des données avec Zod
+ 
 export function withValidation<T>(schema: any, handler: Function) {
   return async (request: Request, context?: any, session?: any) => {
     try {
@@ -55,7 +58,7 @@ export function withValidation<T>(schema: any, handler: Function) {
       return handler(request, context, session, validatedData)
     } catch (error) {
       if (error instanceof ZodError) {
-        const errorMessages = error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+        const errorMessages = error.issues.map((err: any) => `${err.path.join('.')}: ${err.message}`)
         return createErrorResponse(`Données invalides: ${errorMessages.join(', ')}`, 400)
       }
       return createErrorResponse('Erreur de validation des données', 400)
@@ -63,7 +66,7 @@ export function withValidation<T>(schema: any, handler: Function) {
   }
 }
 
-// Middleware de gestion des erreurs
+ 
 export function withErrorHandling(handler: Function) {
   return async (...args: any[]) => {
     try {
@@ -80,7 +83,6 @@ export function withErrorHandling(handler: Function) {
   }
 }
 
-// Fonction pour paginer les résultats
 export interface PaginationParams {
   page?: number
   limit?: number

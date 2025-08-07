@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { addToast } from '@heroui/toast'
 
 interface FranchiseProfile {
   id: string
@@ -58,28 +60,36 @@ export default function FranchiseProfilePage() {
   const [editMode, setEditMode] = useState(false)
 
   useEffect(() => {
-    if (session?.user?.franchiseId) {
+    if ((session?.user as ExtendedUser).franchiseId) {
       fetchProfile()
-    } else if (session?.user && !session.user.franchiseId) {
-      // L'utilisateur est connecté mais n'a pas de franchise associée
+    } else if (session?.user && !(session.user as ExtendedUser).franchiseId) {
+       
       setLoading(false)
     }
   }, [session])
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(`/api/franchises/${session?.user?.franchiseId}`)
+      const response = await fetch(`/api/franchises/${(session?.user as ExtendedUser).franchiseId}`)
       const data = await response.json()
       
       if (data.success) {
         setProfile(data.data)
       } else {
         console.error('Erreur API:', data.error)
-        // Vous pouvez ajouter ici une notification toast ou un état d'erreur
+        addToast({
+          title: 'Erreur',
+          description: data.error,
+          color: 'danger'
+        })
       }
     } catch (error) {
       console.error('Erreur lors du chargement du profil:', error)
-      // Vous pouvez ajouter ici une notification toast ou un état d'erreur
+      addToast({
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Une erreur est survenue lors du chargement du profil',
+        color: 'danger'
+      })
     } finally {
       setLoading(false)
     }
@@ -138,11 +148,11 @@ export default function FranchiseProfilePage() {
           Profil introuvable
         </h3>
         <p className="text-gray-600 dark:text-neutral-400 mb-4">
-          {session?.user?.franchiseId 
+          {(session?.user as ExtendedUser).franchiseId 
             ? "Impossible de charger les informations de votre franchise" 
             : "Aucune franchise associée à votre compte"}
         </p>
-        {!session?.user?.franchiseId && (
+        {!(session?.user as ExtendedUser).franchiseId && (
           <p className="text-sm text-gray-500 dark:text-neutral-500">
             Veuillez contacter l'administrateur pour associer une franchise à votre compte.
           </p>

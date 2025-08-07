@@ -1,11 +1,11 @@
-import { useRef, useState, useCallback } from "react"
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 export interface FileWithId {
   id: string
-  file: File | { type: string; name: string; size: number; url?: string }
+  file: File | { name: string; size: number; type: string; url?: string }
 }
 
-export interface UseFileUploadOptions {
+interface UseFileUploadOptions {
   multiple?: boolean
   maxFiles?: number
   maxSize?: number
@@ -20,133 +20,112 @@ export interface UseFileUploadOptions {
   onFilesChange?: (files: FileWithId[]) => void
 }
 
-export interface UseFileUploadReturn {
-  files: FileWithId[]
-  isDragging: boolean
-  errors: string[]
-}
-
-export interface UseFileUploadActions {
-  handleDragEnter: (e: React.DragEvent) => void
-  handleDragLeave: (e: React.DragEvent) => void
-  handleDragOver: (e: React.DragEvent) => void
-  handleDrop: (e: React.DragEvent) => void
-  openFileDialog: () => void
-  removeFile: (id: string) => void
-  clearFiles: () => void
-  getInputProps: () => React.InputHTMLAttributes<HTMLInputElement>
-}
-
-export const formatBytes = (bytes: number, decimals = 2): string => {
-  if (bytes === 0) return "0 Bytes"
-
+export const formatBytes = (bytes: number, decimals = 2) => {
+  if (bytes === 0) return '0 Bytes'
   const k = 1024
   const dm = decimals < 0 ? 0 : decimals
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
-
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
 }
 
-export const useFileUpload = (
-  options: UseFileUploadOptions = {}
-): [UseFileUploadReturn, UseFileUploadActions] => {
+export const useFileUpload = (options: UseFileUploadOptions = {}) => {
   const {
     multiple = false,
     maxFiles = 1,
-    maxSize = 5 * 1024 * 1024, // 5MB default
-    accept,
+    maxSize = 5 * 1024 * 1024,
+    accept = '',
     initialFiles = [],
-    onFilesChange,
+    onFilesChange
   } = options
 
   const [files, setFiles] = useState<FileWithId[]>(() =>
-    initialFiles.map((file, index) => ({
-      id: file.id || `${file.name}-${Date.now()}-${index}`,
-      file,
+    initialFiles.map(file => ({
+      id: file.id || Math.random().toString(36).substring(7),
+      file: file
     }))
   )
   const [isDragging, setIsDragging] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
-  const inputRef = useRef<HTMLInputElement>(null)
-  const dragCounter = useRef(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  useEffect(() => {
+    onFilesChange?.(files)
+  }, [files, onFilesChange])
 
-  const validateFile = (file: File): string | null => {
+  const validateFile = useCallback((file: File): string | null => {
     if (file.size > maxSize) {
-      return `File size exceeds ${formatBytes(maxSize)}`
+      return `Le fichier ${file.name} est trop volumineux (max: ${formatBytes(maxSize)})`
     }
+    
+    if (accept) {
+      const acceptedTypes = accept.split(',').map(type => type.trim())
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
+      const isValidType = acceptedTypes.some(type => 
+        type === fileExtension || 
+        file.type.includes(type.replace('*', ''))
+      )
+      
+      if (!isValidType) {
+        return `Type de fichier non autorisé: ${file.name}`
+      }
+    }
+    
     return null
-  }
+  }, [maxSize, accept])
 
-  const addFiles = useCallback(
-    (newFiles: File[]) => {
-      const validFiles: FileWithId[] = []
-      const newErrors: string[] = []
+  const addFiles = useCallback((newFiles: FileList | File[]) => {
+    const fileArray = Array.from(newFiles)
+    const validFiles: FileWithId[] = []
+    const newErrors: string[] = []
 
-      for (const file of newFiles) {
-        if (files.length + validFiles.length >= maxFiles) {
-          newErrors.push(`Maximum ${maxFiles} files allowed`)
-          break
-        }
+    if (files.length + fileArray.length > maxFiles) {
+      newErrors.push(`Maximum ${maxFiles} fichier(s) autorisé(s)`)
+      setErrors(newErrors)
+      return
+    }
 
-        const error = validateFile(file)
-        if (error) {
-          newErrors.push(error)
-          continue
-        }
-
+    fileArray.forEach(file => {
+      const error = validateFile(file)
+      if (error) {
+        newErrors.push(error)
+      } else {
         validFiles.push({
-          id: generateId(),
-          file,
+          id: Math.random().toString(36).substring(7),
+          file
         })
       }
+    })
 
-      if (validFiles.length > 0) {
-        const updatedFiles = multiple 
-          ? [...files, ...validFiles]
-          : validFiles
-
-        setFiles(updatedFiles)
-        onFilesChange?.(updatedFiles)
-      }
-
+    if (newErrors.length > 0) {
       setErrors(newErrors)
-    },
-    [files, maxFiles, maxSize, multiple, onFilesChange]
-  )
+    } else {
+      setErrors([])
+      setFiles(prev => multiple ? [...prev, ...validFiles] : validFiles)
+    }
+  }, [files.length, maxFiles, validateFile, multiple])
 
-  const removeFile = useCallback(
-    (id: string) => {
-      const updatedFiles = files.filter((file) => file.id !== id)
-      setFiles(updatedFiles)
-      onFilesChange?.(updatedFiles)
-    },
-    [files, onFilesChange]
-  )
+  const removeFile = useCallback((id: string) => {
+    setFiles(prev => prev.filter(file => file.id !== id))
+    setErrors([])
+  }, [])
 
   const clearFiles = useCallback(() => {
     setFiles([])
     setErrors([])
-    onFilesChange?.([])
-  }, [onFilesChange])
+  }, [])
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    dragCounter.current++
     setIsDragging(true)
   }, [])
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    dragCounter.current--
-    if (dragCounter.current === 0) {
-      setIsDragging(false)
-    }
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setIsDragging(false)
   }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -154,43 +133,32 @@ export const useFileUpload = (
     e.stopPropagation()
   }, [])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setIsDragging(false)
-      dragCounter.current = 0
-
-      const droppedFiles = Array.from(e.dataTransfer.files)
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    
+    const droppedFiles = e.dataTransfer.files
+    if (droppedFiles.length > 0) {
       addFiles(droppedFiles)
-    },
-    [addFiles]
-  )
+    }
+  }, [addFiles])
 
   const openFileDialog = useCallback(() => {
-    inputRef.current?.click()
+    fileInputRef.current?.click()
   }, [])
 
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFiles = Array.from(e.target.files || [])
-      addFiles(selectedFiles)
-      // Reset input value to allow selecting the same file again
-      e.target.value = ""
-    },
-    [addFiles]
-  )
-
-  const getInputProps = useCallback(
-    (): React.InputHTMLAttributes<HTMLInputElement> => ({
-      ref: inputRef,
-      type: "file",
-      multiple,
-      accept,
-      onChange: handleInputChange,
-    }),
-    [multiple, accept, handleInputChange]
-  )
+  const getInputProps = useCallback(() => ({
+    ref: fileInputRef,
+    type: 'file' as const,
+    multiple,
+    accept,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        addFiles(e.target.files)
+      }
+    }
+  }), [multiple, accept, addFiles])
 
   return [
     { files, isDragging, errors },
@@ -202,7 +170,7 @@ export const useFileUpload = (
       openFileDialog,
       removeFile,
       clearFiles,
-      getInputProps,
-    },
-  ]
+      getInputProps
+    }
+  ] as const
 }

@@ -2,10 +2,10 @@
 
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { Badge } from '@/src/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   ArrowLeft,
   Edit,
@@ -24,8 +24,13 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Download
+  Download,
+  Eye
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
+import { useSession } from '@/lib/auth-client'
+import { safeFetchJson } from '@/lib/utils'
 
 interface FranchiseDetail {
   id: string
@@ -38,6 +43,11 @@ interface FranchiseDetail {
   region: string
   contactEmail: string
   contactPhone: string
+  personalPhone: string | null
+  personalEmail: string | null
+  drivingLicense: string | null
+  kbisDocument: string | null
+  idCardDocument: string | null
   status: string
   entryFee: number
   entryFeePaid: boolean
@@ -109,10 +119,18 @@ export default function FranchiseDetailPage({ params }: PageProps) {
   const resolvedParams = use(params)
   const [franchise, setFranchise] = useState<FranchiseDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const { data: session, isPending } = useSession()
 
   useEffect(() => {
+    if (isPending) return
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      router.push('/unauthorized')
+      return
+    }
+
     fetchFranchiseDetail()
-  }, [resolvedParams.id])
+  }, [resolvedParams.id, session, isPending, router])
 
   const fetchFranchiseDetail = async () => {
     try {
@@ -240,7 +258,7 @@ export default function FranchiseDetailPage({ params }: PageProps) {
     )
   }
 
-  // Calculer les statistiques
+   
   const totalSales = franchise.salesReports.reduce((sum, report) => sum + report.dailySales, 0)
   const totalRoyalties = franchise.salesReports.reduce((sum, report) => sum + report.royaltyAmount, 0)
   const pendingInvoices = franchise.invoices.filter(invoice => invoice.paymentStatus === 'PENDING')
@@ -365,6 +383,7 @@ export default function FranchiseDetailPage({ params }: PageProps) {
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList>
           <TabsTrigger value="profile">Profil</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="vehicles">Véhicules</TabsTrigger>
           <TabsTrigger value="orders">Commandes</TabsTrigger>
           <TabsTrigger value="sales">Ventes</TabsTrigger>
@@ -541,6 +560,249 @@ export default function FranchiseDetailPage({ params }: PageProps) {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Document KBIS */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Document KBIS
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {franchise.kbisDocument ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-green-800">Document téléchargé</div>
+                        <div className="text-sm text-gray-500">KBIS disponible</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(franchise.kbisDocument!, '_blank')}
+                        className="flex items-center gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Voir le document
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = franchise.kbisDocument!
+                          link.download = `KBIS_${franchise.businessName}.pdf`
+                          link.click()
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Télécharger
+                      </Button>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      URL: {franchise.kbisDocument}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="font-medium text-red-800 mb-1">Document manquant</div>
+                    <div className="text-sm text-gray-500">Le document KBIS n'a pas été téléchargé</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Carte d'identité */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Carte d'identité
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {franchise.idCardDocument ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-green-800">Document téléchargé</div>
+                        <div className="text-sm text-gray-500">Carte d'identité disponible</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(franchise.idCardDocument!, '_blank')}
+                        className="flex items-center gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Voir le document
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = franchise.idCardDocument!
+                          link.download = `ID_${franchise.user.firstName}_${franchise.user.lastName}.pdf`
+                          link.click()
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Télécharger
+                      </Button>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      URL: {franchise.idCardDocument}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="font-medium text-red-800 mb-1">Document manquant</div>
+                    <div className="text-sm text-gray-500">La carte d'identité n'a pas été téléchargée</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Informations supplémentaires */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Informations complémentaires
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {franchise.personalEmail && (
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="font-medium">{franchise.personalEmail}</div>
+                        <div className="text-sm text-gray-500">Email personnel</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {franchise.personalPhone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="font-medium">{franchise.personalPhone}</div>
+                        <div className="text-sm text-gray-500">Téléphone personnel</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {franchise.drivingLicense && (
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="font-medium">{franchise.drivingLicense}</div>
+                        <div className="text-sm text-gray-500">Permis de conduire</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Statut de validation des documents */}
+                <div className="mt-6 p-4 border rounded-lg">
+                  <h4 className="font-medium mb-3">Statut de validation</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Document KBIS</span>
+                      {franchise.kbisDocument ? (
+                        <Badge variant="default" className="bg-green-100 text-green-800">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Fourni
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Manquant
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Carte d'identité</span>
+                      {franchise.idCardDocument ? (
+                        <Badge variant="default" className="bg-green-100 text-green-800">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Fourni
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Manquant
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Actions de validation */}
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex gap-2">
+                      {franchise.kbisDocument && franchise.idCardDocument ? (
+                        <Button 
+                          size="sm" 
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                             
+                            alert('Fonctionnalité de validation à implémenter')
+                          }}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Valider tous les documents
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          disabled
+                        >
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          Documents incomplets
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                           
+                          alert('Fonctionnalité de demande de documents à implémenter')
+                        }}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Demander documents manquants
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>

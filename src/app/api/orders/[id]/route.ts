@@ -6,6 +6,8 @@ import {
   createSuccessResponse,
   createErrorResponse
 } from '@/lib/api-utils'
+
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
 interface RouteContext {
@@ -14,15 +16,15 @@ interface RouteContext {
   }
 }
 
-// GET /api/orders/[id] - Récupérer une commande
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
     const { id } = context.params
 
-    // Construire les filtres selon le rôle
+     
     const where: any = { id }
-    if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
-      where.franchiseId = session.user.franchiseId
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
+      where.franchiseId = (session.user as ExtendedUser).franchiseId
     }
 
     const order = await prisma.order.findUnique({
@@ -80,19 +82,19 @@ export const GET = withAuth(
 
     return createSuccessResponse(order)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// PUT /api/orders/[id] - Mettre à jour une commande
+ 
 export const PUT = withAuth(
   withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
     const { id } = context.params
     const body = await request.json()
 
-    // Vérifier si la commande existe et appartient au bon franchisé
+     
     const where: any = { id }
-    if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
-      where.franchiseId = session.user.franchiseId
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
+      where.franchiseId = (session.user as ExtendedUser).franchiseId
     }
 
     const existingOrder = await prisma.order.findUnique({ where })
@@ -101,7 +103,7 @@ export const PUT = withAuth(
       return createErrorResponse('Commande introuvable', 404)
     }
 
-    // Seules certaines données peuvent être mises à jour selon le statut
+     
     const allowedUpdates: any = {}
     
     if (body.status && ['PENDING', 'CONFIRMED', 'IN_PREPARATION', 'SHIPPED', 'DELIVERED', 'CANCELLED'].includes(body.status)) {
@@ -120,9 +122,9 @@ export const PUT = withAuth(
       allowedUpdates.notes = body.notes
     }
 
-    allowedUpdates.updatedById = session.user.id
+    allowedUpdates.updatedById = (session.user as ExtendedUser).id
 
-    // Mettre à jour la commande
+     
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: allowedUpdates,
@@ -147,7 +149,7 @@ export const PUT = withAuth(
       }
     })
 
-    // Créer un log d'audit
+     
     await prisma.auditLog.create({
       data: {
         action: 'UPDATE',
@@ -155,21 +157,21 @@ export const PUT = withAuth(
         recordId: id,
         oldValues: JSON.stringify(existingOrder),
         newValues: JSON.stringify(updatedOrder),
-        userId: session.user.id
+        userId: (session.user as ExtendedUser).id
       }
     })
 
     return createSuccessResponse(updatedOrder, 'Commande mise à jour avec succès')
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// DELETE /api/orders/[id] - Supprimer une commande
+ 
 export const DELETE = withAuth(
   withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
     const { id } = context.params
 
-    // Vérifier si la commande existe
+     
     const existingOrder = await prisma.order.findUnique({
       where: { id },
       include: {
@@ -181,18 +183,18 @@ export const DELETE = withAuth(
       return createErrorResponse('Commande introuvable', 404)
     }
 
-    // Vérifier les permissions
-    if (session.user.role === UserRole.FRANCHISEE && existingOrder.franchiseId !== session.user.franchiseId) {
+     
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && existingOrder.franchiseId !== (session.user as ExtendedUser).franchiseId) {
       return createErrorResponse('Permission refusée', 403)
     }
 
-    // Seules les commandes en brouillon ou en attente peuvent être supprimées
+     
     if (!['DRAFT', 'PENDING'].includes(existingOrder.status)) {
       return createErrorResponse('Impossible de supprimer une commande en cours de traitement', 400)
     }
 
-    // Supprimer la commande et ses items
-    await prisma.$transaction(async (tx) => {
+     
+    await prisma.$transaction(async (tx: any) => {
       await tx.orderItem.deleteMany({
         where: { orderId: id }
       })
@@ -202,18 +204,18 @@ export const DELETE = withAuth(
       })
     })
 
-    // Créer un log d'audit
+     
     await prisma.auditLog.create({
       data: {
         action: 'DELETE',
         tableName: 'orders',
         recordId: id,
         oldValues: JSON.stringify(existingOrder),
-        userId: session.user.id
+        userId: (session.user as ExtendedUser).id
       }
     })
 
     return createSuccessResponse(null, 'Commande supprimée avec succès')
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

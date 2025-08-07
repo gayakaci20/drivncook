@@ -10,9 +10,10 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { warehouseSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/warehouses - Lister les entrepôts
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -20,7 +21,7 @@ export const GET = withAuth(
     const search = searchParams.get('search') || ''
     const region = searchParams.get('region') || ''
 
-    // Construire les filtres
+     
     const where: any = {}
     
     if (search) {
@@ -35,7 +36,7 @@ export const GET = withAuth(
       where.region = region
     }
 
-    // Récupérer les entrepôts avec pagination
+     
     const [warehouses, total] = await Promise.all([
       prisma.warehouse.findMany({
         where,
@@ -68,32 +69,32 @@ export const GET = withAuth(
     const response = createPaginationResponse(warehouses, total, page || 1, limit || 10)
     return createSuccessResponse(response)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// POST /api/warehouses - Créer un nouvel entrepôt
+ 
 export const POST = withAuth(
   withValidation(
     warehouseSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
-      // Créer l'entrepôt
+       
       const warehouse = await prisma.warehouse.create({
         data: validatedData
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'warehouses',
           recordId: warehouse.id,
           newValues: JSON.stringify(warehouse),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(warehouse, 'Entrepôt créé avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

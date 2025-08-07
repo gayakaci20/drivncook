@@ -10,9 +10,10 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { maintenanceSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/maintenance - Lister les maintenances
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -22,7 +23,7 @@ export const GET = withAuth(
     const type = searchParams.get('type') || ''
     const franchiseId = searchParams.get('franchiseId') || ''
 
-    // Construire les filtres
+     
     const where: any = {}
     
     if (vehicleId) {
@@ -37,10 +38,10 @@ export const GET = withAuth(
       where.type = type
     }
 
-    // Filtrer par franchise si nécessaire
-    if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
+     
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
       where.vehicle = {
-        franchiseId: session.user.franchiseId
+        franchiseId: (session.user as ExtendedUser).franchiseId
       }
     } else if (franchiseId) {
       where.vehicle = {
@@ -48,7 +49,7 @@ export const GET = withAuth(
       }
     }
 
-    // Récupérer les maintenances avec pagination
+     
     const [maintenances, total] = await Promise.all([
       prisma.maintenance.findMany({
         where,
@@ -85,15 +86,15 @@ export const GET = withAuth(
     const response = createPaginationResponse(maintenances, total, page || 1, limit || 10)
     return createSuccessResponse(response)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// POST /api/maintenance - Créer une nouvelle maintenance
+ 
 export const POST = withAuth(
   withValidation(
     maintenanceSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
-      // Vérifier que le véhicule existe
+       
       const vehicle = await prisma.vehicle.findUnique({
         where: { id: validatedData.vehicleId },
         include: {
@@ -105,12 +106,12 @@ export const POST = withAuth(
         return createErrorResponse('Véhicule introuvable', 404)
       }
 
-      // Vérifier les permissions
-      if (session.user.role === UserRole.FRANCHISEE && vehicle.franchiseId !== session.user.franchiseId) {
+       
+      if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && vehicle.franchiseId !== (session.user as ExtendedUser).franchiseId) {
         return createErrorResponse('Permission refusée', 403)
       }
 
-      // Créer la maintenance
+       
       const maintenance = await prisma.maintenance.create({
         data: {
           type: validatedData.type,
@@ -126,7 +127,7 @@ export const POST = withAuth(
           notes: validatedData.notes,
           nextMaintenanceDate: validatedData.nextMaintenanceDate ? new Date(validatedData.nextMaintenanceDate) : null,
           vehicleId: validatedData.vehicleId,
-          createdById: session.user.id
+          createdById: (session.user as ExtendedUser).id
         },
         include: {
           vehicle: {
@@ -153,19 +154,19 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'maintenances',
           recordId: maintenance.id,
           newValues: JSON.stringify(maintenance),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(maintenance, 'Maintenance créée avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

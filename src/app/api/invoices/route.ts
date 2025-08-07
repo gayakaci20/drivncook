@@ -10,9 +10,10 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { invoiceSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/invoices - Lister les factures
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -22,12 +23,12 @@ export const GET = withAuth(
     const startDate = searchParams.get('startDate') || ''
     const endDate = searchParams.get('endDate') || ''
 
-    // Construire les filtres
+     
     const where: any = {}
     
-    // Si l'utilisateur est un franchisé, filtrer par son franchise
-    if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
-      where.franchiseId = session.user.franchiseId
+     
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
+      where.franchiseId = (session.user as ExtendedUser).franchiseId
     } else if (franchiseId) {
       where.franchiseId = franchiseId
     }
@@ -51,7 +52,7 @@ export const GET = withAuth(
       }
     }
 
-    // Récupérer les factures avec pagination
+     
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({
         where,
@@ -78,15 +79,15 @@ export const GET = withAuth(
     const response = createPaginationResponse(invoices, total, page || 1, limit || 10)
     return createSuccessResponse(response)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// POST /api/invoices - Créer une nouvelle facture
+ 
 export const POST = withAuth(
   withValidation(
     invoiceSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
-      // Vérifier que la franchise existe
+       
       const franchise = await prisma.franchise.findUnique({
         where: { id: validatedData.franchiseId }
       })
@@ -95,11 +96,11 @@ export const POST = withAuth(
         return createErrorResponse('Franchise introuvable', 404)
       }
 
-      // Générer un numéro de facture unique
+       
       const invoiceCount = await prisma.invoice.count()
       const invoiceNumber = `FACT-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(6, '0')}`
 
-      // Créer la facture
+       
       const invoice = await prisma.invoice.create({
         data: {
           invoiceNumber,
@@ -123,19 +124,19 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'invoices',
           recordId: invoice.id,
           newValues: JSON.stringify(invoice),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(invoice, 'Facture créée avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

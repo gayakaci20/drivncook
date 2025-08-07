@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession, signOut } from '@/lib/auth-client'
+import { ExtendedUser } from '@/types/auth'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   Bell, 
   User, 
@@ -13,37 +20,17 @@ import {
   Moon,
   Sun
 } from 'lucide-react'
+import { useTheme } from '@/components/providers/theme-provider'
+import { useRouter } from 'next/navigation'
 
 export function AdminHeader() {
+  const router = useRouter()
   const { data: session } = useSession()
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [isDarkMode, setIsDarkMode] = useState(false)
-
-  useEffect(() => {
-    const darkMode = localStorage.getItem('darkMode') === 'true' || 
-                    (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    setIsDarkMode(darkMode)
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode
-    setIsDarkMode(newDarkMode)
-    localStorage.setItem('darkMode', newDarkMode.toString())
-    
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }
+  const { isDarkMode, toggleDarkMode } = useTheme()
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' })
+    await signOut()
+    window.location.href = '/login'
   }
 
   return (
@@ -87,47 +74,35 @@ export function AdminHeader() {
           </Button>
 
           {/* User menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 px-2.5 sm:px-3 py-2 rounded-xl hover:bg-gray-100/80 dark:hover:bg-neutral-800/60 transition-colors ring-1 ring-inset ring-transparent hover:ring-gray-200/80 dark:hover:ring-neutral-700/80"
-            >
-              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
-                <User className="h-4 w-4 text-white" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-gray-900 dark:text-neutral-100">
-                  {session?.user?.name || 'Utilisateur'}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-3 px-2.5 sm:px-3 py-2 rounded-xl hover:bg-gray-100/80 dark:hover:bg-neutral-800/60 transition-colors ring-1 ring-inset ring-transparent hover:ring-gray-200/80 dark:hover:ring-neutral-700/80">
+                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
+                  <User className="h-4 w-4 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-neutral-400">
-                  {session?.user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
+                <div className="text-left">
+                  <div className="text-sm font-medium text-gray-900 dark:text-neutral-100">
+                    {session?.user?.name || 'Utilisateur'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-neutral-400">
+                    {(session?.user as ExtendedUser)?.role === 'ADMIN' ? 'Admin' : 'Admin'}
+                  </div>
                 </div>
-              </div>
-              <ChevronDown className="h-4 w-4 text-gray-500 dark:text-neutral-400" />
-            </button>
-
-            {/* Dropdown menu */}
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl rounded-xl shadow-lg border border-gray-200/70 dark:border-neutral-800 py-1.5 z-50">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-neutral-200 hover:bg-gray-100/80 dark:hover:bg-neutral-800/60">
-                  <User className="h-4 w-4" />
-                  Mon profil
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-neutral-200 hover:bg-gray-100/80 dark:hover:bg-neutral-800/60">
-                  <Settings className="h-4 w-4" />
-                  Paramètres
-                </button>
-                <hr className="my-1" />
-                <button 
-                  onClick={handleSignOut}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50/70 dark:hover:bg-red-950/30"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Se déconnecter
-                </button>
-              </div>
-            )}
-          </div>
+                <ChevronDown className="h-4 w-4 text-gray-500 dark:text-neutral-400" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => router.push('/admin/settings')}>
+                <Settings className="h-4 w-4" />
+                Paramètres
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} variant="destructive">
+                <LogOut className="h-4 w-4" />
+                Se déconnecter
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

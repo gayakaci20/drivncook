@@ -77,7 +77,7 @@ function PopoverAnchor({
   return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
 }
 
-// Composant TooltipLikePopover basé sur comp-384
+ 
 interface TooltipLikePopoverProps {
   triggerText?: string
   title?: string

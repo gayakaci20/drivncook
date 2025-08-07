@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,8 @@ import {
   BarChart3,
   MapPin
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { addToast } from '@heroui/toast'
 
 interface SalesReport {
   id: string
@@ -34,7 +36,7 @@ export default function FranchiseSalesPage() {
   const { data: session } = useSession()
   const [salesReports, setSalesReports] = useState<SalesReport[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)) // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))  
   const [showNewReportForm, setShowNewReportForm] = useState(false)
   const [newReport, setNewReport] = useState({
     reportDate: new Date().toISOString().slice(0, 10),
@@ -45,7 +47,7 @@ export default function FranchiseSalesPage() {
   })
 
   useEffect(() => {
-    if (session?.user?.franchiseId) {
+    if ((session?.user as ExtendedUser).franchiseId) {
       fetchSalesReports()
     }
   }, [session, selectedMonth])
@@ -88,7 +90,7 @@ export default function FranchiseSalesPage() {
           transactionCount: parseInt(newReport.transactionCount) || 0,
           location: newReport.location,
           notes: newReport.notes,
-          franchiseId: session?.user?.franchiseId
+          franchiseId: (session?.user as ExtendedUser).franchiseId
         }),
       })
 
@@ -104,11 +106,19 @@ export default function FranchiseSalesPage() {
         fetchSalesReports()
       } else {
         const error = await response.json()
-        alert(error.error || 'Erreur lors de la création du rapport')
+        addToast({
+          title: 'Erreur',
+          description: error.error || 'Erreur lors de la création du rapport',
+          color: 'danger'
+        })
       }
     } catch (error) {
       console.error('Erreur:', error)
-      alert('Erreur lors de la création du rapport')
+      addToast({
+        title: 'Erreur',
+        description: error instanceof Error ? error.message : 'Erreur lors de la création du rapport',
+        color: 'danger'
+      })
     }
   }
 
@@ -138,7 +148,7 @@ export default function FranchiseSalesPage() {
     return new Date(dateString).toLocaleDateString('fr-FR')
   }
 
-  // Calculs pour les statistiques du mois
+   
   const monthlyStats = {
     totalSales: salesReports.reduce((sum, report) => sum + report.dailySales, 0),
     totalTransactions: salesReports.reduce((sum, report) => sum + report.transactionCount, 0),

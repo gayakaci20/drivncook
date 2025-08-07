@@ -74,7 +74,7 @@ interface FileUploadProps {
 }
 
 export default function FileUpload({
-  maxSize = 5 * 1024 * 1024, // 5MB default
+  maxSize = 5 * 1024 * 1024,  
   maxFiles = 1,
   accept = ".pdf,.jpg,.jpeg,.png",
   label = "Upload files",
@@ -138,7 +138,7 @@ export default function FileUpload({
               )}
             </div>
             <div className="w-full space-y-2">
-              {files.map((file) => (
+              {files.map((file: any) => (
                 <div
                   key={file.id}
                   className="bg-background flex items-center justify-between gap-2 rounded-lg border p-2 pe-3"

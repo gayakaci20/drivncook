@@ -36,7 +36,7 @@ export default function FranchiseProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      // Simuler un appel API - à remplacer par le vrai endpoint
+       
       setProducts([])
     } catch (error) {
       console.error('Erreur lors du chargement des produits:', error)

@@ -10,9 +10,10 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { productSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/products - Lister les produits
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -21,7 +22,7 @@ export const GET = withAuth(
     const categoryId = searchParams.get('categoryId') || ''
     const isActive = searchParams.get('isActive')
 
-    // Construire les filtres
+     
     const where: any = {}
     
     if (search) {
@@ -40,7 +41,7 @@ export const GET = withAuth(
       where.isActive = isActive === 'true'
     }
 
-    // Récupérer les produits avec pagination
+     
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -79,15 +80,15 @@ export const GET = withAuth(
     const response = createPaginationResponse(products, total, page || 1, limit || 10)
     return createSuccessResponse(response)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// POST /api/products - Créer un nouveau produit
+ 
 export const POST = withAuth(
   withValidation(
     productSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
-      // Vérifier si le SKU existe déjà
+       
       const existingSku = await prisma.product.findUnique({
         where: { sku: validatedData.sku }
       })
@@ -96,7 +97,7 @@ export const POST = withAuth(
         return createErrorResponse('Ce SKU est déjà utilisé', 400)
       }
 
-      // Vérifier que la catégorie existe
+       
       const category = await prisma.productCategory.findUnique({
         where: { id: validatedData.categoryId }
       })
@@ -105,7 +106,7 @@ export const POST = withAuth(
         return createErrorResponse('Catégorie introuvable', 404)
       }
 
-      // Créer le produit
+       
       const product = await prisma.product.create({
         data: validatedData,
         include: {
@@ -119,19 +120,19 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'products',
           recordId: product.id,
           newValues: JSON.stringify(product),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(product, 'Produit créé avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

@@ -185,7 +185,7 @@ export function AdminSidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-gray-200/70 dark:border-neutral-800">
         <div className="text-xs text-gray-500 dark:text-neutral-400 text-center">
-          © 2025 Driv'n Cook. Tous droits réservés.
+          © 2025 DRIV&apos;N COOK. Tous droits réservés.
         </div>
       </div>
     </div>

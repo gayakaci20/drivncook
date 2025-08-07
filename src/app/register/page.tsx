@@ -1,12 +1,11 @@
 'use client'
 
-import Footer from '../../components/footer'
+import Footer from '@/components/ui/footer'
 import { Poppins } from 'next/font/google'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
-import FileUpload from '@/components/ui/file-upload'
-import type { FileWithId } from '@/hooks/use-file-upload'
+import { useState, useEffect } from 'react'
+import UploadThingFileUpload from '@/components/ui/uploadthing-file-upload'
 import { useDarkMode } from '@/hooks/use-dark-mode'
 
 const poppins = Poppins({
@@ -16,6 +15,8 @@ const poppins = Poppins({
 
 export default function Register() {
   const { isDarkMode } = useDarkMode()
+  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null)  
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -41,11 +42,35 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     
-    kbisDocument: [] as FileWithId[],
-    idCardDocument: [] as FileWithId[],
+    kbisDocument: [] as Array<{name: string, size: number, type: string, url: string}>,
+    idCardDocument: [] as Array<{name: string, size: number, type: string, url: string}>,
     
     acceptTerms: false
   })
+
+   
+  useEffect(() => {
+    const checkForAdmin = async () => {
+      try {
+        const response = await fetch('/api/auth/check-admin')
+        const data = await response.json()
+        
+        if (response.ok) {
+          setHasAdmin(data.data.hasAdmin)
+        } else {
+          console.error('Erreur lors de la vérification de l\'admin:', data.message)
+          setHasAdmin(true)  
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification de l\'admin:', error)
+        setHasAdmin(true)  
+      } finally {
+        setIsCheckingAdmin(false)
+      }
+    }
+
+    checkForAdmin()
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -56,7 +81,7 @@ export default function Register() {
     }
   }
 
-  const handleFileChange = (name: string, files: FileWithId[]) => {
+  const handleFileChange = (name: string, files: Array<{name: string, size: number, type: string, url: string}>) => {
     setFormData(prev => ({ ...prev, [name]: files }))
   }
 
@@ -67,7 +92,9 @@ export default function Register() {
       return
     }
     setSubmitError('')
-    setCurrentStep(prev => Math.min(prev + 1, 3))
+     
+    const maxSteps = hasAdmin === false ? 1 : 3
+    setCurrentStep(prev => Math.min(prev + 1, maxSteps))
   }
   
   const prevStep = () => {
@@ -78,6 +105,19 @@ export default function Register() {
   const validateStep = (step: number): string[] => {
     const errors: string[] = []
     
+     
+    if (hasAdmin === false) {
+      if (!formData.firstName.trim()) errors.push('Le prénom est requis')
+      if (!formData.lastName.trim()) errors.push('Le nom est requis')
+      if (!formData.email.trim()) errors.push('L\'email est requis')
+      if (!formData.password.trim()) errors.push('Le mot de passe est requis')
+      if (formData.password.length < 6) errors.push('Le mot de passe doit contenir au moins 6 caractères')
+      if (!formData.confirmPassword.trim()) errors.push('La confirmation du mot de passe est requise')
+      if (formData.password !== formData.confirmPassword) errors.push('Les mots de passe ne correspondent pas')
+      return errors
+    }
+    
+     
     if (step === 1) {
       if (!formData.firstName.trim()) errors.push('Le prénom est requis')
       if (!formData.lastName.trim()) errors.push('Le nom est requis')
@@ -112,11 +152,19 @@ export default function Register() {
     setSubmitError('')
     setSubmitSuccess('')
     
-    const allErrors = [
-      ...validateStep(1),
-      ...validateStep(2),
-      ...validateStep(3)
-    ]
+    let allErrors: string[] = []
+    
+    if (hasAdmin === false) {
+       
+      allErrors = validateStep(1)
+    } else {
+       
+      allErrors = [
+        ...validateStep(1),
+        ...validateStep(2),
+        ...validateStep(3)
+      ]
+    }
     
     if (allErrors.length > 0) {
       setSubmitError(allErrors.join(', '))
@@ -126,18 +174,33 @@ export default function Register() {
     setIsSubmitting(true)
     
     try {
+       
+      const dataToSend = hasAdmin === false 
+        ? {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            password: formData.password,
+            confirmPassword: formData.confirmPassword
+          }
+        : formData
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       })
       
       const result = await response.json()
       
       if (response.ok) {
-        setSubmitSuccess(result.message || 'Inscription réussie !')
+        const message = hasAdmin === false 
+          ? 'Compte administrateur créé avec succès ! Vous pouvez maintenant vous connecter.' 
+          : 'Inscription réussie ! Votre demande est en cours de traitement.'
+        
+        setSubmitSuccess(result.message || message)
         setTimeout(() => {
           window.location.href = '/login'
         }, 3000)
@@ -157,6 +220,32 @@ export default function Register() {
     'Corse', 'Grand Est', 'Hauts-de-France', 'Île-de-France', 'Normandie', 'Nouvelle-Aquitaine',
     'Occitanie', 'Pays de la Loire', 'Provence-Alpes-Côte d\'Azur'
   ]
+
+   
+  if (isCheckingAdmin) {
+    return (
+      <div className="relative min-h-screen overflow-hidden">
+        <div aria-hidden="true" className="flex absolute -top-96 start-1/2 transform -translate-x-1/2">
+          <div className="bg-linear-to-r from-red-300/50 to-red-100 blur-3xl w-100 h-175 rotate-[-60deg] transform -translate-x-40 dark:from-red-900/50 dark:to-red-900"></div>
+          <div className="bg-linear-to-tl from-red-50 via-red-100 to-red-50 blur-3xl w-[1440px] h-200 rounded-fulls origin-top-left -rotate-12 -translate-x-60 dark:from-red-900/70 dark:via-red-900/70 dark:to-red-900/70"></div>
+        </div>
+
+        <div className="relative z-10">
+          <div className="min-h-screen flex items-center justify-center py-16 px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full max-w-md">
+              <div className={`${poppins.className} mt-4 rounded-2xl border border-white/60 bg-white/70 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.2)] backdrop-blur-md dark:bg-neutral-900/60 dark:border-white/10`}>
+                <div className="p-6 sm:p-8 lg:p-10 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-neutral-400">Chargement...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -184,10 +273,13 @@ export default function Register() {
                 <div className="p-6 sm:p-8 lg:p-10">
                   <div className="text-center mb-10">
                     <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-                      Inscription
+                      {hasAdmin === false ? 'Création du compte administrateur' : 'Inscription'}
                     </h1>
                     <p className="mt-2 text-sm text-gray-600 dark:text-neutral-400">
-                      Créez votre compte et renseignez les informations nécessaires pour valider votre partenariat.
+                      {hasAdmin === false 
+                        ? 'Créez le premier compte administrateur de la plateforme.' 
+                        : 'Créez votre compte et renseignez les informations nécessaires pour valider votre partenariat.'
+                      }
                     </p>
                     <p className="mt-4 text-sm text-gray-600 dark:text-neutral-400">
                       Déjà un compte ?
@@ -210,48 +302,132 @@ export default function Register() {
                     )}
                   </div>
 
-                  {/* Progress Steps (timeline) */}
-                  <div className="mb-10">
-                    <ol className="flex">
-                      {[1, 2, 3].map((step) => {
-                        const active = currentStep === step
-                        const done = currentStep > step
-                        return (
-                          <li key={step} className="relative flex-1">
-                            <div className="flex flex-col items-center">
-                              <div className="flex items-center w-full">
-                                <div
-                                  className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold transition-all mx-auto
-                                    ${done ? 'bg-red-600 border-red-600 text-white shadow-sm' : active ? 'bg-white border-red-500 text-red-600 dark:bg-neutral-900' : 'bg-white border-gray-300 text-gray-500 dark:bg-neutral-900 dark:border-neutral-700'}`}
-                                >
-                                  {step}
-                                </div>
-                                {step !== 3 && (
+                  {/* Progress Steps (timeline) - seulement pour les franchisés */}
+                  {hasAdmin === true && (
+                    <div className="mb-10">
+                      <ol className="flex">
+                        {[1, 2, 3].map((step) => {
+                          const active = currentStep === step
+                          const done = currentStep > step
+                          return (
+                            <li key={step} className="relative flex-1">
+                              <div className="flex flex-col items-center">
+                                <div className="flex items-center w-full">
                                   <div
-                                    className={`absolute left-1/2 ml-5 h-1 w-full rounded-full transition-colors ${done ? 'bg-red-600' : active ? 'bg-red-300' : 'bg-gray-200 dark:bg-neutral-800'}`}
-                                  />
-                                )}
+                                    className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold transition-all mx-auto
+                                      ${done ? 'bg-red-600 border-red-600 text-white shadow-sm' : active ? 'bg-white border-red-500 text-red-600 dark:bg-neutral-900' : 'bg-white border-gray-300 text-gray-500 dark:bg-neutral-900 dark:border-neutral-700'}`}
+                                  >
+                                    {step}
+                                  </div>
+                                  {step !== 3 && (
+                                    <div
+                                      className={`absolute left-1/2 ml-5 h-1 w-full rounded-full transition-colors ${done ? 'bg-red-600' : active ? 'bg-red-300' : 'bg-gray-200 dark:bg-neutral-800'}`}
+                                    />
+                                  )}
+                                </div>
+                                <div className="mt-3 text-center text-xs text-gray-500 dark:text-neutral-400">
+                                  {step === 1 && (active ? <span className="text-red-600 font-medium">Personnel</span> : 'Personnel')}
+                                  {step === 2 && (active ? <span className="text-red-600 font-medium">Entreprise</span> : 'Entreprise')}
+                                  {step === 3 && (active ? <span className="text-red-600 font-medium">Documents</span> : 'Documents')}
+                                </div>
                               </div>
-                              <div className="mt-3 text-center text-xs text-gray-500 dark:text-neutral-400">
-                                {step === 1 && (active ? <span className="text-red-600 font-medium">Personnel</span> : 'Personnel')}
-                                {step === 2 && (active ? <span className="text-red-600 font-medium">Entreprise</span> : 'Entreprise')}
-                                {step === 3 && (active ? <span className="text-red-600 font-medium">Documents</span> : 'Documents')}
-                              </div>
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ol>
-                  </div>
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit}>
-                    {/* Step 1: Informations personnelles */}
-                    {currentStep === 1 && (
+                    {/* Mode administrateur simplifié */}
+                    {hasAdmin === false && (
                       <div className="space-y-6">
                         <div className="mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informations personnelles</h3>
-                          <p className="text-sm text-gray-500 dark:text-neutral-400">Ces informations serviront à créer votre compte utilisateur.</p>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Création du compte administrateur</h3>
+                          <p className="text-sm text-gray-500 dark:text-neutral-400">Veuillez renseigner vos informations personnelles pour créer le premier compte administrateur.</p>
                         </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label htmlFor="firstName" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Prénom *</label>
+                            <input
+                              type="text"
+                              id="firstName"
+                              name="firstName"
+                              value={formData.firstName}
+                              onChange={handleInputChange}
+                              className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:placeholder-neutral-500"
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="lastName" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Nom *</label>
+                            <input
+                              type="text"
+                              id="lastName"
+                              name="lastName"
+                              value={formData.lastName}
+                              onChange={handleInputChange}
+                              className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:placeholder-neutral-500"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Adresse email *</label>
+                          <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:placeholder-neutral-500"
+                            required
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label htmlFor="password" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Mot de passe *</label>
+                            <input
+                              type="password"
+                              id="password"
+                              name="password"
+                              value={formData.password}
+                              onChange={handleInputChange}
+                              className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:placeholder-neutral-500"
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Confirmer le mot de passe *</label>
+                            <input
+                              type="password"
+                              id="confirmPassword"
+                              name="confirmPassword"
+                              value={formData.confirmPassword}
+                              onChange={handleInputChange}
+                              className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:placeholder-neutral-500"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mode franchisé complet */}
+                    {hasAdmin === true && (
+                      <>
+                        {/* Step 1: Informations personnelles */}
+                        {currentStep === 1 && (
+                          <div className="space-y-6">
+                            <div className="mb-2">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Informations personnelles</h3>
+                              <p className="text-sm text-gray-500 dark:text-neutral-400">Ces informations serviront à créer votre compte utilisateur.</p>
+                            </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -509,36 +685,28 @@ export default function Register() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="rounded-xl border bg-white/60 p-4 dark:bg-neutral-900/50 dark:border-neutral-800">
                             <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Document KBIS</label>
-                            <FileUpload
-                              maxSize={5 * 1024 * 1024} // 5MB
+                            <UploadThingFileUpload
+                              maxSize={8 * 1024 * 1024}  
                               maxFiles={1}
                               accept=".pdf,.jpg,.jpeg,.png"
                               label="Télécharger le document KBIS"
-                              description="Format accepté: PDF, JPG, PNG (max 5MB)"
+                              description="Format accepté: PDF, JPG, PNG (max 8MB)"
+                              documentType="kbis"
                               onFilesChange={(files) => handleFileChange('kbisDocument', files)}
-                              initialFiles={formData.kbisDocument.map(f => ({
-                                name: f.file instanceof File ? f.file.name : f.file.name,
-                                size: f.file instanceof File ? f.file.size : f.file.size,
-                                type: f.file instanceof File ? f.file.type : f.file.type,
-                                id: f.id
-                              }))}
+                              initialFiles={formData.kbisDocument}
                             />
                           </div>
                           <div className="rounded-xl border bg-white/60 p-4 dark:bg-neutral-900/50 dark:border-neutral-800">
                             <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-white">Carte d'identité</label>
-                            <FileUpload
-                              maxSize={5 * 1024 * 1024} // 5MB
+                            <UploadThingFileUpload
+                              maxSize={8 * 1024 * 1024}  
                               maxFiles={1}
                               accept=".pdf,.jpg,.jpeg,.png"
                               label="Télécharger la carte d'identité"
-                              description="Format accepté: PDF, JPG, PNG (max 5MB)"
+                              description="Format accepté: PDF, JPG, PNG (max 8MB)"
+                              documentType="id-card"
                               onFilesChange={(files) => handleFileChange('idCardDocument', files)}
-                              initialFiles={formData.idCardDocument.map(f => ({
-                                name: f.file instanceof File ? f.file.name : f.file.name,
-                                size: f.file instanceof File ? f.file.size : f.file.size,
-                                type: f.file instanceof File ? f.file.type : f.file.type,
-                                id: f.id
-                              }))}
+                              initialFiles={formData.idCardDocument}
                             />
                           </div>
                         </div>
@@ -565,11 +733,13 @@ export default function Register() {
                           </label>
                         </div>
                       </div>
+                        )}
+                      </>
                     )}
 
                     {/* Navigation Buttons - sticky action bar */}
                     <div className="sticky bottom-0 mt-10 flex justify-between gap-3 px-2 py-4">
-                      {currentStep > 1 && (
+                      {hasAdmin === true && currentStep > 1 && (
                         <button
                           type="button"
                           onClick={prevStep}
@@ -580,19 +750,12 @@ export default function Register() {
                       )}
                       
                       <div className="ml-auto">
-                        {currentStep < 3 ? (
-                          <button
-                            type="button"
-                            onClick={nextStep}
-                            className="py-3 px-6 inline-flex items-center gap-2 text-sm font-semibold rounded-xl bg-red-500/90 text-white shadow-xs hover:bg-red-600 focus:ring-2 focus:ring-red-500/30"
-                          >
-                            Suivant
-                          </button>
-                        ) : (
+                        {hasAdmin === false ? (
+                           
                           <button
                             type="submit"
                             className="py-3 px-6 inline-flex items-center gap-2 text-sm font-semibold rounded-xl bg-red-500/90 text-white shadow-xs hover:bg-red-600 focus:ring-2 focus:ring-red-500/30 disabled:opacity-50"
-                            disabled={!formData.acceptTerms || isSubmitting}
+                            disabled={isSubmitting}
                           >
                             {isSubmitting ? (
                               <>
@@ -603,12 +766,41 @@ export default function Register() {
                                 Création en cours...
                               </>
                             ) : (
-                              'Créer mon compte'
+                              'Créer le compte administrateur'
                             )}
                           </button>
+                        ) : (
+                           
+                          currentStep < 3 ? (
+                            <button
+                              type="button"
+                              onClick={nextStep}
+                              className="py-3 px-6 inline-flex items-center gap-2 text-sm font-semibold rounded-xl bg-red-500/90 text-white shadow-xs hover:bg-red-600 focus:ring-2 focus:ring-red-500/30"
+                            >
+                              Suivant
+                            </button>
+                          ) : (
+                            <button
+                              type="submit"
+                              className="py-3 px-6 inline-flex items-center gap-2 text-sm font-semibold rounded-xl bg-red-500/90 text-white shadow-xs hover:bg-red-600 focus:ring-2 focus:ring-red-500/30 disabled:opacity-50"
+                              disabled={!formData.acceptTerms || isSubmitting}
+                            >
+                              {isSubmitting ? (
+                                <>
+                                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Création en cours...
+                                </>
+                              ) : (
+                                'Créer mon compte'
+                              )}
+                            </button>
+                          )
                         )}
                       </div>
-                      </div>
+                    </div>
                     </form>
                   </div>
                 </div>

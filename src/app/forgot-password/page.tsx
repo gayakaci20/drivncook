@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import Footer from '@/components/footer'
+import Footer from '@/components/ui/footer'
 import { Poppins } from 'next/font/google'
 import { useEffect, useState } from 'react'
 
@@ -26,7 +26,7 @@ export default function ForgotPassword() {
     e.preventDefault()
     setIsLoading(true)
     
-    // Simulate API call
+    
     setTimeout(() => {
       setIsLoading(false)
       setIsSubmitted(true)

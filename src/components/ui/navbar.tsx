@@ -4,8 +4,8 @@ import { User, Moon, Sun } from 'lucide-react'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
-import { Button } from './ui/button'
+import { Button } from './button'
+import { useTheme } from '@/components/providers/theme-provider'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -13,30 +13,7 @@ const poppins = Poppins({
 })
 
 export default function Navbar() {
-  const [isDarkMode, setIsDarkMode] = useState(false)
-
-  useEffect(() => {
-    const darkMode = localStorage.getItem('darkMode') === 'true' || 
-                    (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    setIsDarkMode(darkMode)
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode
-    setIsDarkMode(newDarkMode)
-    localStorage.setItem('darkMode', newDarkMode.toString())
-    
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }
+  const { isDarkMode, toggleDarkMode } = useTheme()
 
   return (
       <header className={`${poppins.className} absolute top-0 w-full flex flex-wrap lg:justify-start lg:flex-nowrap z-50 py-7`}>

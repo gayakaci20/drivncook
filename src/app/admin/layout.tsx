@@ -1,34 +1,36 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 import { AdminHeader } from '@/components/admin/admin-header'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (isPending) return
 
     if (!session) {
       router.push('/login')
       return
     }
 
-    if (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN') {
+    if ((session.user as ExtendedUser).role !== UserRole.ADMIN) {
       router.push('/unauthorized')
       return
     }
-  }, [session, status, router])
+  }, [session, isPending, router])
 
-  if (status === 'loading') {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -39,7 +41,7 @@ export default function AdminLayout({
     )
   }
 
-  if (!session || (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN')) {
+  if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
     return null
   }
 

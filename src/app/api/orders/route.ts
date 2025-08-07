@@ -10,9 +10,10 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { orderSchema } from '@/lib/validations'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/orders - Lister les commandes
+ 
 export const GET = withAuth(
   withErrorHandling(async (request: NextRequest, context: any, session: any) => {
     const { searchParams } = new URL(request.url)
@@ -21,12 +22,12 @@ export const GET = withAuth(
     const status = searchParams.get('status') || ''
     const franchiseId = searchParams.get('franchiseId') || ''
 
-    // Construire les filtres
+     
     const where: any = {}
     
-    // Si l'utilisateur est un franchisé, filtrer par son franchise
-    if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
-      where.franchiseId = session.user.franchiseId
+     
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
+      where.franchiseId = (session.user as ExtendedUser).franchiseId
     } else if (franchiseId) {
       where.franchiseId = franchiseId
     }
@@ -42,7 +43,7 @@ export const GET = withAuth(
       where.status = status
     }
 
-    // Récupérer les commandes avec pagination
+     
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
@@ -97,25 +98,25 @@ export const GET = withAuth(
     const response = createPaginationResponse(orders, total, page || 1, limit || 10)
     return createSuccessResponse(response)
   }),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
-// POST /api/orders - Créer une nouvelle commande
+ 
 export const POST = withAuth(
   withValidation(
     orderSchema,
     withErrorHandling(async (request: NextRequest, context: any, session: any, validatedData: any) => {
       let franchiseId = validatedData.franchiseId
 
-      // Si l'utilisateur est un franchisé, utiliser son franchiseId
-      if (session.user.role === UserRole.FRANCHISEE) {
-        if (!session.user.franchiseId) {
+       
+      if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE) {
+        if (!(session.user as ExtendedUser).franchiseId) {
           return createErrorResponse('Franchisé non associé à une franchise', 400)
         }
-        franchiseId = session.user.franchiseId
+        franchiseId = (session.user as ExtendedUser).franchiseId
       }
 
-      // Vérifier que la franchise existe
+       
       const franchise = await prisma.franchise.findUnique({
         where: { id: franchiseId }
       })
@@ -124,11 +125,11 @@ export const POST = withAuth(
         return createErrorResponse('Franchise introuvable', 404)
       }
 
-      // Générer un numéro de commande unique
+       
       const orderCount = await prisma.order.count()
       const orderNumber = `CMD-${new Date().getFullYear()}-${String(orderCount + 1).padStart(6, '0')}`
 
-      // Créer la commande
+       
       const order = await prisma.order.create({
         data: {
           orderNumber,
@@ -136,7 +137,7 @@ export const POST = withAuth(
           requestedDeliveryDate: validatedData.requestedDeliveryDate ? new Date(validatedData.requestedDeliveryDate) : null,
           notes: validatedData.notes,
           isFromDrivnCook: validatedData.isFromDrivnCook,
-          createdById: session.user.id
+          createdById: (session.user as ExtendedUser).id
         },
         include: {
           franchise: {
@@ -159,19 +160,19 @@ export const POST = withAuth(
         }
       })
 
-      // Créer un log d'audit
+       
       await prisma.auditLog.create({
         data: {
           action: 'CREATE',
           tableName: 'orders',
           recordId: order.id,
           newValues: JSON.stringify(order),
-          userId: session.user.id
+          userId: (session.user as ExtendedUser).id
         }
       })
 
       return createSuccessResponse(order, 'Commande créée avec succès')
     })
   ),
-  [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.FRANCHISE_MANAGER, UserRole.FRANCHISEE]
+  [UserRole.ADMIN, UserRole.FRANCHISEE]
 )

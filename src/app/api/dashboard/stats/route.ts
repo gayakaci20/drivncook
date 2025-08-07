@@ -1,39 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-// GET /api/dashboard/stats - Récupérer les statistiques du dashboard
+
+ 
 export async function GET(request: NextRequest) {
   try {
-    // Vérifier l'authentification
-    const session = await getServerSession(authOptions)
+     
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
     
     if (!session?.user) {
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
 
-    if (!['SUPER_ADMIN', 'ADMIN', 'FRANCHISE_MANAGER', 'FRANCHISEE'].includes(session.user.role)) {
+    if ((session.user as ExtendedUser).role !== UserRole.ADMIN && (session.user as ExtendedUser).role !== UserRole.FRANCHISEE) {
       return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
     }
   const { searchParams } = new URL(request.url)
-  const period = searchParams.get('period') || '30' // jours
+  const period = searchParams.get('period') || '30'  
   const franchiseId = searchParams.get('franchiseId') || ''
 
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - parseInt(period))
 
-  // Définir les filtres selon le rôle
+   
   let franchiseFilter: any = {}
-  if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
-    franchiseFilter = { franchiseId: session.user.franchiseId }
+  if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
+    franchiseFilter = { franchiseId: (session.user as ExtendedUser).franchiseId }
   } else if (franchiseId) {
     franchiseFilter = { franchiseId: franchiseId }
   }
 
-  // Statistiques générales pour les admins
-  if (session.user.role === UserRole.SUPER_ADMIN || session.user.role === UserRole.ADMIN) {
+   
+  if ((session.user as ExtendedUser).role === UserRole.ADMIN) {
     const [
       totalFranchises,
       activeFranchises,
@@ -44,30 +48,30 @@ export async function GET(request: NextRequest) {
       unpaidInvoices,
       monthlyRevenue
     ] = await Promise.all([
-      // Total des franchises
+       
       prisma.franchise.count(),
       
-      // Franchises actives
+       
       prisma.franchise.count({
         where: { status: 'ACTIVE' }
       }),
       
-      // Total des véhicules
+       
       prisma.vehicle.count(),
       
-      // Véhicules disponibles
+       
       prisma.vehicle.count({
         where: { status: 'AVAILABLE' }
       }),
       
-      // Commandes en attente
+       
       prisma.order.count({
         where: { 
           status: { in: ['PENDING', 'CONFIRMED', 'IN_PREPARATION'] }
         }
       }),
       
-      // Ventes récentes
+       
       prisma.salesReport.aggregate({
         where: {
           reportDate: { gte: startDate }
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
         _count: true
       }),
       
-      // Factures impayées
+       
       prisma.invoice.aggregate({
         where: {
           paymentStatus: { in: ['PENDING', 'OVERDUE'] }
@@ -85,7 +89,7 @@ export async function GET(request: NextRequest) {
         _count: true
       }),
       
-      // Revenus mensuels (redevances)
+       
       prisma.salesReport.aggregate({
         where: {
           reportDate: { gte: startDate }
@@ -94,7 +98,7 @@ export async function GET(request: NextRequest) {
       })
     ])
 
-    // Évolution des ventes par jour (30 derniers jours)
+     
     const dailySales = await prisma.salesReport.groupBy({
       by: ['reportDate'],
       where: {
@@ -109,7 +113,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Top 5 des franchises par CA
+     
     const topFranchises = await prisma.salesReport.groupBy({
       by: ['franchiseId'],
       where: {
@@ -127,7 +131,7 @@ export async function GET(request: NextRequest) {
       take: 5
     })
 
-    // Enrichir avec les infos des franchises
+     
     const topFranchisesWithDetails = await Promise.all(
       topFranchises.map(async (item: any) => {
         const franchise = await prisma.franchise.findUnique({
@@ -181,8 +185,8 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // Statistiques pour les franchisés
-  if (session.user.role === UserRole.FRANCHISEE && session.user.franchiseId) {
+   
+  if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
     const [
       myVehicles,
       myOrders,
@@ -190,9 +194,9 @@ export async function GET(request: NextRequest) {
       myInvoices,
       recentReports
     ] = await Promise.all([
-      // Mes véhicules
+       
       prisma.vehicle.findMany({
-        where: { franchiseId: session.user.franchiseId },
+        where: { franchiseId: (session.user as ExtendedUser).franchiseId },
         select: {
           id: true,
           licensePlate: true,
@@ -204,10 +208,10 @@ export async function GET(request: NextRequest) {
         }
       }),
       
-      // Mes commandes récentes
+       
       prisma.order.findMany({
         where: { 
-          franchiseId: session.user.franchiseId,
+          franchiseId: (session.user as ExtendedUser).franchiseId as string,
           orderDate: { gte: startDate }
         },
         select: {
@@ -221,10 +225,10 @@ export async function GET(request: NextRequest) {
         take: 10
       }),
       
-      // Mes ventes
+       
       prisma.salesReport.aggregate({
         where: {
-          franchiseId: session.user.franchiseId,
+          franchiseId: (session.user as ExtendedUser).franchiseId as string,
           reportDate: { gte: startDate }
         },
         _sum: { 
@@ -235,9 +239,9 @@ export async function GET(request: NextRequest) {
         _avg: { averageTicket: true }
       }),
       
-      // Mes factures
+       
       prisma.invoice.findMany({
-        where: { franchiseId: session.user.franchiseId },
+        where: { franchiseId: (session.user as ExtendedUser).franchiseId as string },
         select: {
           id: true,
           invoiceNumber: true,
@@ -250,10 +254,10 @@ export async function GET(request: NextRequest) {
         take: 5
       }),
       
-      // Évolution de mes ventes
+       
       prisma.salesReport.findMany({
         where: {
-          franchiseId: session.user.franchiseId,
+          franchiseId: (session.user as ExtendedUser).franchiseId as string,
           reportDate: { gte: startDate }
         },
         select: {

@@ -7,12 +7,12 @@ import { Check, Clock, AlertTriangle, Circle, Eye, MapPin, X } from 'lucide-reac
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 
-// Fix for default markers in Leaflet with Next.js
+ 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl: unknown })._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png'
 })
 
 interface Franchise {
@@ -42,7 +42,7 @@ interface FranchiseMapProps {
   onFranchiseClick?: (franchise: Franchise) => void
 }
 
-// Custom icons for different statuses with Lucide icons
+ 
 const createCustomIcon = (status: string) => {
   const config = {
     'ACTIVE': { color: '#10b981', iconSvg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"></polyline></svg>' },
@@ -77,31 +77,31 @@ const createCustomIcon = (status: string) => {
   })
 }
 
-// Component to fit bounds when franchises change
+ 
 function FitBounds({ franchises }: { franchises: Franchise[] }) {
   const map = useMap()
   
   useEffect(() => {
     if (franchises.length > 0) {
-      // Get coordinates from postal codes (simplified - in real app you'd use geocoding)
+       
       const coordinates = franchises.map(franchise => {
-        // Simple mapping of some French postal codes to coordinates
-        // In a real app, you'd use a geocoding service or store lat/lng in database
+         
+         
         const postalCode = franchise.postalCode
         
-        // Paris region
+         
         if (postalCode.startsWith('75') || postalCode.startsWith('92') || postalCode.startsWith('93') || postalCode.startsWith('94')) {
           return [48.8566 + (Math.random() - 0.5) * 0.1, 2.3522 + (Math.random() - 0.5) * 0.1] as [number, number]
         }
-        // Marseille region
+         
         if (postalCode.startsWith('13')) {
           return [43.2965 + (Math.random() - 0.5) * 0.1, 5.3698 + (Math.random() - 0.5) * 0.1] as [number, number]
         }
-        // Lyon region
+         
         if (postalCode.startsWith('69')) {
           return [45.7640 + (Math.random() - 0.5) * 0.1, 4.8357 + (Math.random() - 0.5) * 0.1] as [number, number]
         }
-        // Default to center of France with some random spread
+         
         return [46.6034 + (Math.random() - 0.5) * 2, 1.8883 + (Math.random() - 0.5) * 2] as [number, number]
       })
       
@@ -120,26 +120,26 @@ export default function FranchiseMap({ franchises, onFranchiseClick }: Franchise
   const [selectedFranchise, setSelectedFranchise] = useState<Franchise | null>(null)
   const [popoverOpen, setPopoverOpen] = useState(false)
 
-  // Generate coordinates for franchises (in a real app, these would come from geocoding or database)
+   
   const franchisesWithCoords = franchises.map(franchise => {
     const postalCode = franchise.postalCode
     let lat, lng
     
-    // Simple mapping based on postal codes (replace with real geocoding)
+     
     if (postalCode.startsWith('75') || postalCode.startsWith('92') || postalCode.startsWith('93') || postalCode.startsWith('94')) {
-      // Paris region
+       
       lat = 48.8566 + (Math.random() - 0.5) * 0.1
       lng = 2.3522 + (Math.random() - 0.5) * 0.1
     } else if (postalCode.startsWith('13')) {
-      // Marseille region  
+       
       lat = 43.2965 + (Math.random() - 0.5) * 0.1
       lng = 5.3698 + (Math.random() - 0.5) * 0.1
     } else if (postalCode.startsWith('69')) {
-      // Lyon region
+       
       lat = 45.7640 + (Math.random() - 0.5) * 0.1
       lng = 4.8357 + (Math.random() - 0.5) * 0.1
     } else {
-      // Default to center of France with random spread
+       
       lat = 46.6034 + (Math.random() - 0.5) * 2
       lng = 1.8883 + (Math.random() - 0.5) * 2
     }
@@ -161,6 +161,7 @@ export default function FranchiseMap({ franchises, onFranchiseClick }: Franchise
   }
 
   return (
+    <>
     <div className="relative h-96 w-full rounded-xl overflow-hidden border border-gray-200 dark:border-neutral-800 bg-white/30 dark:bg-black/20 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
       {/* Top overlay header */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[401] p-3">
@@ -204,7 +205,7 @@ export default function FranchiseMap({ franchises, onFranchiseClick }: Franchise
       </div>
 
       <MapContainer
-        center={[46.6034, 1.8883]} // Center of France
+        center={[46.6034, 1.8883]}  
         zoom={6}
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
@@ -234,7 +235,7 @@ export default function FranchiseMap({ franchises, onFranchiseClick }: Franchise
       {popoverOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
           {/* Backdrop avec blur */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/20 backdrop-blur-sm"
             onClick={() => setPopoverOpen(false)}
           />
@@ -332,5 +333,6 @@ export default function FranchiseMap({ franchises, onFranchiseClick }: Franchise
         </div>
       )}
     </div>
+    </>
   )
 }

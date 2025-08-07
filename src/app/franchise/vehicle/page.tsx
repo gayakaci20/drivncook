@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,7 @@ import {
   FileText,
   Plus
 } from 'lucide-react'
-
+import { ExtendedUser } from '@/types/auth'
 interface Vehicle {
   id: string
   licensePlate: string
@@ -50,10 +50,10 @@ export default function FranchiseVehiclePage() {
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false)
 
   useEffect(() => {
-    if (session?.user?.franchiseId) {
+    if ((session?.user as ExtendedUser).franchiseId) {
       fetchVehicle()
-    } else if (session?.user && !session.user.franchiseId) {
-      // L'utilisateur est connecté mais n'a pas de franchise associée
+    } else if (session?.user && !(session.user as ExtendedUser).franchiseId) {
+       
       setLoading(false)
     }
   }, [session])
@@ -80,7 +80,7 @@ export default function FranchiseVehiclePage() {
       const data = await response.json()
       
       if (data.success && data.data && data.data.data && data.data.data.length > 0) {
-        setVehicle(data.data.data[0]) // Premier véhicule trouvé
+        setVehicle(data.data.data[0])  
       } else if (!data.success) {
         console.error('Erreur API véhicules:', data.error)
       }
@@ -185,12 +185,12 @@ export default function FranchiseVehiclePage() {
           Aucun véhicule assigné
         </h3>
         <p className="text-gray-600 dark:text-neutral-400 mb-4">
-          {session?.user?.franchiseId 
+          {((session?.user as ExtendedUser).franchiseId) 
             ? "Aucun véhicule n'est actuellement assigné à votre franchise" 
             : "Aucune franchise associée à votre compte"}
         </p>
         <p className="text-sm text-gray-500 dark:text-neutral-500">
-          {session?.user?.franchiseId 
+          {((session?.user as ExtendedUser).franchiseId) 
             ? "Contactez votre administrateur pour l'attribution d'un véhicule"
             : "Veuillez contacter l'administrateur pour associer une franchise à votre compte"}
         </p>

@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   ShoppingCart, 
   Plus, 
@@ -14,8 +21,18 @@ import {
   Package,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  ChevronDown,
+  Pause,
+  Truck,
+  X
 } from 'lucide-react'
+import { safeFetchJson } from '@/lib/utils'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
+import { useSession } from '@/lib/auth-client'
+import { useRouter } from 'next/navigation'
+
 
 interface Order {
   id: string
@@ -41,10 +58,19 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const { data: session, isPending } = useSession()
+  const router = useRouter()
 
   useEffect(() => {
+    if (isPending) return
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      router.push('/unauthorized')
+      return
+    }
+
     fetchOrders()
-  }, [search, statusFilter])
+  }, [session, isPending, router])
 
   const fetchOrders = async () => {
     try {
@@ -53,13 +79,23 @@ export default function AdminOrdersPage() {
       if (statusFilter) params.append('status', statusFilter)
 
       const response = await fetch(`/api/orders?${params}`)
-      const data = await response.json()
+      const data = await safeFetchJson(response)
       
       if (data.success) {
         setOrders(data.data.data || [])
+      } else {
+        throw new Error(data.error || 'Unknown server error')
       }
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error)
+      
+       
+      if (error instanceof Error && error.message.includes('401')) {
+        window.location.href = '/login'
+        return
+      }
+      
+      setOrders([])  
     } finally {
       setLoading(false)
     }
@@ -145,19 +181,53 @@ export default function AdminOrdersPage() {
                 />
               </div>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
-            >
-              <option value="">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="CONFIRMED">Confirmée</option>
-              <option value="IN_PREPARATION">En préparation</option>
-              <option value="SHIPPED">Expédiée</option>
-              <option value="DELIVERED">Livrée</option>
-              <option value="CANCELLED">Annulée</option>
-            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-10 rounded-xl">
+                  <Filter className="h-4 w-4" />
+                  {statusFilter ? (
+                    statusFilter === 'PENDING' ? 'En attente' :
+                    statusFilter === 'CONFIRMED' ? 'Confirmée' :
+                    statusFilter === 'IN_PREPARATION' ? 'En préparation' :
+                    statusFilter === 'SHIPPED' ? 'Expédiée' :
+                    statusFilter === 'DELIVERED' ? 'Livrée' :
+                    statusFilter === 'CANCELLED' ? 'Annulée' : statusFilter
+                  ) : 'Tous les statuts'}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatusFilter('')}>
+                  <Filter className="h-4 w-4" />
+                  Tous les statuts
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setStatusFilter('PENDING')}>
+                  <Clock className="h-4 w-4 text-yellow-600" />
+                  En attente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('CONFIRMED')}>
+                  <CheckCircle className="h-4 w-4 text-blue-600" />
+                  Confirmée
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('IN_PREPARATION')}>
+                  <Package className="h-4 w-4 text-orange-600" />
+                  En préparation
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('SHIPPED')}>
+                  <Truck className="h-4 w-4 text-purple-600" />
+                  Expédiée
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('DELIVERED')}>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  Livrée
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('CANCELLED')}>
+                  <XCircle className="h-4 w-4 text-red-600" />
+                  Annulée
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline">
               <Filter className="h-4 w-4 mr-2" />
               Plus de filtres

@@ -1,9 +1,7 @@
-// Types d'énumérations Prisma exportés depuis le schema
+ 
 
 export enum UserRole {
-  SUPER_ADMIN = 'SUPER_ADMIN',
   ADMIN = 'ADMIN',
-  FRANCHISE_MANAGER = 'FRANCHISE_MANAGER',
   FRANCHISEE = 'FRANCHISEE'
 }
 
@@ -51,7 +49,7 @@ export enum MaintenanceStatus {
   CANCELLED = 'CANCELLED'
 }
 
-// Types de session étendus pour NextAuth
+ 
 export interface ExtendedUser {
   id: string
   email: string

@@ -1,12 +1,19 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   DollarSign, 
   ShoppingCart, 
@@ -17,8 +24,13 @@ import {
   AlertTriangle,
   CheckCircle,
   FileText,
-  Calendar
+  Calendar,
+  ChevronDown,
+  Plus,
+  PenTool
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
 
 interface FranchiseeStats {
   overview: {
@@ -66,25 +78,25 @@ interface FranchiseeStats {
 }
 
 export default function FranchiseDashboardPage() {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
   const [stats, setStats] = useState<FranchiseeStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (isPending) return
 
-    if (!session || session.user.role !== 'FRANCHISEE') {
+    if (!session || (session.user as ExtendedUser).role !== UserRole.FRANCHISEE) {
       router.push('/unauthorized')
       return
     }
 
     fetchStats()
-  }, [session, status, router])
+  }, [session, isPending, router])
 
   const fetchStats = async () => {
     try {
-      console.log('Fetching dashboard stats for user:', session?.user?.email, 'franchiseId:', session?.user?.franchiseId)
+      console.log('Fetching dashboard stats for user:', (session?.user as ExtendedUser).email, 'franchiseId:', (session?.user as ExtendedUser).franchiseId)
       
       const response = await fetch('/api/dashboard/stats?period=30')
       
@@ -124,7 +136,7 @@ export default function FranchiseDashboardPage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (isPending || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -287,15 +299,30 @@ export default function FranchiseDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button variant="outline" size="sm" className="w-full rounded-xl">
-              Nouvelle commande
-            </Button>
-            <Button variant="outline" size="sm" className="w-full rounded-xl">
-              Saisir ventes du jour
-            </Button>
-            <Button variant="outline" size="sm" className="w-full rounded-xl">
-              Voir mes rapports
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full rounded-xl">
+                  <Plus className="h-4 w-4" />
+                  Actions rapides
+                  <ChevronDown className="h-4 w-4 ml-auto" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem>
+                  <ShoppingCart className="h-4 w-4" />
+                  Nouvelle commande
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <PenTool className="h-4 w-4" />
+                  Saisir ventes du jour
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <FileText className="h-4 w-4" />
+                  Voir mes rapports
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardContent>
         </Card>
 
@@ -376,7 +403,7 @@ export default function FranchiseDashboardPage() {
                       Aucun véhicule assigné
                     </h3>
                     <p className="text-gray-600 dark:text-neutral-400">
-                      {session?.user?.franchiseId 
+                      {(session?.user as ExtendedUser).franchiseId 
                         ? "Aucun véhicule n'est actuellement assigné à votre franchise" 
                         : "Aucune franchise associée à votre compte"}
                     </p>

@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { Badge } from '@/src/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   Package, 
   Plus, 
@@ -20,8 +27,17 @@ import {
   TrendingUp,
   Eye,
   Edit,
-  Download
+  Download,
+  ChevronDown,
+  Apple,
+  Coffee,
+  Utensils,
+  Box
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { useSession } from '@/lib/auth-client'
+import { safeFetchJson } from '@/lib/utils'
+import { UserRole } from '@/types/prisma-enums'
 
 interface Product {
   id: string
@@ -97,10 +113,18 @@ export default function AdminInventoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [warehouseFilter, setWarehouseFilter] = useState('')
+  const { data: session, isPending } = useSession()
 
   useEffect(() => {
+    if (isPending) return
+
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      router.push('/unauthorized')
+      return
+    }
+
     fetchData()
-  }, [searchTerm, categoryFilter, warehouseFilter])
+  }, [session, isPending, router])
 
   const fetchData = async () => {
     try {
@@ -119,7 +143,7 @@ export default function AdminInventoryPage() {
         setWarehouses(warehousesData.data.data || [])
       }
 
-      // Calculer les alertes de stock
+       
       calculateStockAlerts()
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error)
@@ -161,7 +185,7 @@ export default function AdminInventoryPage() {
           })
         }
 
-        // Vérifier les dates d'expiration
+         
         if (stock.expirationDate) {
           const expirationDate = new Date(stock.expirationDate)
           const today = new Date()
@@ -218,7 +242,7 @@ export default function AdminInventoryPage() {
     }
   }
 
-  // Calculer les statistiques
+   
   const totalProducts = products.length
   const activeProducts = products.filter(p => p.isActive).length
   const totalValue = products.reduce((sum, product) => {
@@ -232,7 +256,7 @@ export default function AdminInventoryPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto"></div>
           <p className="mt-2 text-gray-600">Chargement...</p>
         </div>
       </div>
@@ -368,31 +392,63 @@ export default function AdminInventoryPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
-              >
-                <option value="">Toutes les catégories</option>
-                <option value="Ingrédients frais">Ingrédients frais</option>
-                <option value="Plats préparés">Plats préparés</option>
-                <option value="Boissons">Boissons</option>
-                <option value="Conditionnement">Conditionnement</option>
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-10 rounded-xl">
+                    <Filter className="h-4 w-4" />
+                    {categoryFilter ? categoryFilter : 'Toutes les catégories'}
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setCategoryFilter('')}>
+                    <Filter className="h-4 w-4" />
+                    Toutes les catégories
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Ingrédients frais')}>
+                    <Apple className="h-4 w-4 text-green-600" />
+                    Ingrédients frais
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Plats préparés')}>
+                    <Utensils className="h-4 w-4 text-orange-600" />
+                    Plats préparés
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Boissons')}>
+                    <Coffee className="h-4 w-4 text-blue-600" />
+                    Boissons
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Conditionnement')}>
+                    <Box className="h-4 w-4 text-purple-600" />
+                    Conditionnement
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
-              <select
-                value={warehouseFilter}
-                onChange={(e) => setWarehouseFilter(e.target.value)}
-                className="px-3 py-2 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
-              >
-                <option value="">Tous les entrepôts</option>
-                {warehouses.map(warehouse => (
-                  <option key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name} ({warehouse.city})
-                  </option>
-                ))}
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-10 rounded-xl">
+                    <Building2 className="h-4 w-4" />
+                    {warehouseFilter ? 
+                      warehouses.find(w => w.id === warehouseFilter)?.name || 'Entrepôt sélectionné' 
+                      : 'Tous les entrepôts'}
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setWarehouseFilter('')}>
+                    <Building2 className="h-4 w-4" />
+                    Tous les entrepôts
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {warehouses.map(warehouse => (
+                    <DropdownMenuItem key={warehouse.id} onClick={() => setWarehouseFilter(warehouse.id)}>
+                      <Building2 className="h-4 w-4 text-blue-600" />
+                      {warehouse.name} ({warehouse.city})
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardContent>

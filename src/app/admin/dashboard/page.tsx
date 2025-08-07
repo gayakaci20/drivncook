@@ -1,6 +1,6 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox, CheckboxWithLabel } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   Users, 
   Truck, 
@@ -16,8 +23,15 @@ import {
   AlertTriangle,
   TrendingUp,
   Building2,
-  FileText
+  FileText,
+  ChevronDown,
+  Plus,
+  UserPlus,
+  FileBarChart
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
+import { safeFetchJson } from '@/lib/utils'
+import { UserRole } from '@/types/prisma-enums'
 
 interface DashboardStats {
   overview: {
@@ -49,21 +63,21 @@ interface DashboardStats {
 }
 
 export default function AdminDashboardPage() {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (isPending) return
 
-    if (!session || (session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'ADMIN')) {
+    if (!session || (session.user as ExtendedUser).role !== UserRole.ADMIN) {
       router.push('/unauthorized')
       return
     }
 
     fetchStats()
-  }, [session, status, router])
+  }, [session, isPending, router])
 
   const fetchStats = async () => {
     try {
@@ -79,7 +93,7 @@ export default function AdminDashboardPage() {
     }
   }
 
-  if (status === 'loading' || loading) {
+  if (isPending || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -116,7 +130,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900 dark:text-neutral-100">Dashboard</h2>
-          <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">Vue d\'ensemble des indicateurs clés de Driv\'n Cook</p>
+          <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">Vue d&apos;ensemble des indicateurs clés de DRIV&apos;N COOK</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={fetchStats} className="rounded-xl">Actualiser</Button>
@@ -198,9 +212,30 @@ export default function AdminDashboardPage() {
             <CardTitle className="flex items-center gap-2"><Building2 className="h-4 w-4 text-blue-500" /> Actions rapides</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" size="sm" className="w-full rounded-xl">Nouveau franchisé</Button>
-            <Button variant="outline" size="sm" className="w-full rounded-xl">Nouveau véhicule</Button>
-            <Button variant="outline" size="sm" className="w-full rounded-xl">Générer rapport</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full rounded-xl">
+                  <Plus className="h-4 w-4" />
+                  Actions rapides
+                  <ChevronDown className="h-4 w-4 ml-auto" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem>
+                  <UserPlus className="h-4 w-4" />
+                  Nouveau franchisé
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Truck className="h-4 w-4" />
+                  Nouveau véhicule
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <FileBarChart className="h-4 w-4" />
+                  Générer rapport
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <hr className="my-3" />
             
@@ -274,7 +309,7 @@ export default function AdminDashboardPage() {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="p-4 border rounded-xl">
-                  <h4 className="font-medium mb-2">Taux d\'occupation des véhicules</h4>
+                  <h4 className="font-medium mb-2">Taux d&apos;occupation des véhicules</h4>
                   <div className="text-2xl font-bold">
                     {Math.round(((stats.overview.totalVehicles - stats.overview.availableVehicles) / stats.overview.totalVehicles) * 100)}%
                   </div>
@@ -296,7 +331,7 @@ export default function AdminDashboardPage() {
               
               {/* Démonstration des composants checkbox */}
               <div className="p-4 border rounded-xl mt-4">
-                <h4 className="font-medium mb-4">Options d'affichage</h4>
+                <h4 className="font-medium mb-4">Options d&apos;affichage</h4>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">Tailles disponibles :</p>

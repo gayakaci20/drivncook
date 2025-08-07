@@ -1,99 +1,102 @@
-import { NextAuthOptions } from 'next-auth'
-import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
-import { UserRole } from '@/types/prisma-enums'
+import { betterAuth } from 'better-auth'
+import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { nextCookies } from 'better-auth/next-js'
+import { prisma } from './prisma'
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Mot de passe', type: 'password' }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
-          },
-          include: {
-            franchise: true
-          }
-        })
-
-        if (!user) {
-          return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        if (!user.isActive) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: `${user.firstName} ${user.lastName}`,
-          role: user.role,
-          franchiseId: user.franchise?.id || null,
-        }
-      }
-    })
+export const auth = betterAuth({
+  database: prismaAdapter(prisma, {
+    provider: 'sqlite'
+  }),
+  plugins: [
+    nextCookies()
   ],
-  session: {
-    strategy: 'jwt'
+  emailAndPassword: {
+    enabled: true,
+    autoSignIn: true
   },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role as UserRole
-        token.franchiseId = user.franchiseId
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        defaultValue: 'FRANCHISEE'
+      },
+      firstName: {
+        type: 'string',
+        required: true
+      },
+      lastName: {
+        type: 'string',
+        required: true
+      },
+      phone: {
+        type: 'string',
+        required: false
+      },
+      isActive: {
+        type: 'boolean',
+        defaultValue: true
       }
-      return token
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.sub!
-        session.user.role = token.role as UserRole
-        session.user.franchiseId = token.franchiseId as string | null
-      }
-      return session
     }
   },
-  pages: {
-    signIn: '/login',
-    error: '/login'
+  async onAfterSignIn(user: any) {
+     
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.user.id },
+      include: { franchise: true }
+    })
+    
+    if (!dbUser?.isActive) {
+      throw new Error('Compte désactivé')
+    }
+
+     
+    if (!dbUser.firstName && !dbUser.lastName) {
+      await prisma.user.update({
+        where: { id: user.user.id },
+        data: { firstName: user.user.firstName, lastName: user.user.lastName }
+      })
+    }
+    
+    return user
   }
+})
+
+ 
+export function isAdmin(role: 'ADMIN' | 'FRANCHISEE'): boolean {
+  return role === 'ADMIN'
 }
 
-// Utilitaires d'autorisation
-export function isAdmin(role: UserRole): boolean {
-  return role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN
+export function isFranchisee(role: 'ADMIN' | 'FRANCHISEE'): boolean {
+  return role === 'FRANCHISEE'
 }
 
-export function isFranchiseManager(role: UserRole): boolean {
-  return role === UserRole.FRANCHISE_MANAGER
-}
-
-export function isFranchisee(role: UserRole): boolean {
-  return role === UserRole.FRANCHISEE
-}
-
-export function canAccessFranchise(userRole: UserRole, userFranchiseId: string | null, targetFranchiseId: string): boolean {
+export function canAccessFranchise(userRole: 'ADMIN' | 'FRANCHISEE', userFranchiseId: string | null, targetFranchiseId: string): boolean {
   if (isAdmin(userRole)) return true
-  if (isFranchiseManager(userRole)) return true
-  return userFranchiseId === targetFranchiseId
+  if (isFranchisee(userRole)) return userFranchiseId === targetFranchiseId
+  return false
+}
+
+ 
+export async function getServerSession(headers: Headers) {
+  try {
+    const cookie = headers.get('cookie') || ''
+    
+    const response = await fetch(
+      new URL('/api/auth/session', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'), 
+      {
+        headers: { cookie },
+      }
+    )
+    
+    if (!response.ok) {
+      return null
+    }
+    
+    const sessionData = await response.json()
+    return sessionData.user ? { user: sessionData.user } : null
+  } catch (error) {
+    console.error('Error getting server session:', error)
+    return null
+  }
 }

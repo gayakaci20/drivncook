@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card'
-import { Button } from '@/src/components/ui/button'
-import { Badge } from '@/src/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   Wrench, 
   Plus, 
@@ -20,7 +27,11 @@ import {
   User,
   FileText,
   Edit,
-  Download
+  Download,
+  ChevronDown,
+  Settings,
+  Zap,
+  X
 } from 'lucide-react'
 
 interface Maintenance {
@@ -169,7 +180,7 @@ export default function VehicleMaintenancePage() {
     return null
   }
 
-  // Calculer les statistiques
+   
   const stats = {
     total: maintenances.length,
     scheduled: maintenances.filter(m => m.status === 'SCHEDULED').length,
@@ -295,29 +306,76 @@ export default function VehicleMaintenancePage() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
-              >
-                <option value="">Tous les statuts</option>
-                <option value="SCHEDULED">Planifiées</option>
-                <option value="IN_PROGRESS">En cours</option>
-                <option value="COMPLETED">Terminées</option>
-                <option value="CANCELLED">Annulées</option>
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-10 rounded-xl">
+                    <Filter className="h-4 w-4" />
+                    {statusFilter ? (
+                      statusFilter === 'SCHEDULED' ? 'Planifiées' :
+                      statusFilter === 'IN_PROGRESS' ? 'En cours' :
+                      statusFilter === 'COMPLETED' ? 'Terminées' :
+                      statusFilter === 'CANCELLED' ? 'Annulées' : statusFilter
+                    ) : 'Tous les statuts'}
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setStatusFilter('')}>
+                    <Filter className="h-4 w-4" />
+                    Tous les statuts
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setStatusFilter('SCHEDULED')}>
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    Planifiées
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('IN_PROGRESS')}>
+                    <Clock className="h-4 w-4 text-orange-600" />
+                    En cours
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('COMPLETED')}>
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Terminées
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('CANCELLED')}>
+                    <X className="h-4 w-4 text-red-600" />
+                    Annulées
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-3 py-2 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
-              >
-                <option value="">Tous les types</option>
-                <option value="PREVENTIVE">Préventive</option>
-                <option value="CORRECTIVE">Corrective</option>
-                <option value="EMERGENCY">Urgence</option>
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-10 rounded-xl">
+                    <Wrench className="h-4 w-4" />
+                    {typeFilter ? (
+                      typeFilter === 'PREVENTIVE' ? 'Préventive' :
+                      typeFilter === 'CORRECTIVE' ? 'Corrective' :
+                      typeFilter === 'EMERGENCY' ? 'Urgence' : typeFilter
+                    ) : 'Tous les types'}
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setTypeFilter('')}>
+                    <Wrench className="h-4 w-4" />
+                    Tous les types
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setTypeFilter('PREVENTIVE')}>
+                    <Settings className="h-4 w-4 text-blue-600" />
+                    Préventive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTypeFilter('CORRECTIVE')}>
+                    <Wrench className="h-4 w-4 text-orange-600" />
+                    Corrective
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTypeFilter('EMERGENCY')}>
+                    <Zap className="h-4 w-4 text-red-600" />
+                    Urgence
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardContent>

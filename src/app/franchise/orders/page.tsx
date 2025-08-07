@@ -1,10 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   ShoppingCart, 
   Plus, 
@@ -15,8 +22,10 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Truck
+  Truck,
+  ChevronDown
 } from 'lucide-react'
+import { ExtendedUser } from '@/types/auth'
 
 interface Order {
   id: string
@@ -55,7 +64,7 @@ export default function FranchiseOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => {
-    if (session?.user?.franchiseId) {
+    if ((session?.user as ExtendedUser).franchiseId) {
       fetchOrders()
     }
   }, [session, search, statusFilter])
@@ -223,18 +232,48 @@ export default function FranchiseOrdersPage() {
                 />
               </div>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
-            >
-              <option value="">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="CONFIRMED">Confirmée</option>
-              <option value="IN_PREPARATION">En préparation</option>
-              <option value="SHIPPED">Expédiée</option>
-              <option value="DELIVERED">Livrée</option>
-            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-10 rounded-xl">
+                  <Filter className="h-4 w-4" />
+                  {statusFilter ? (
+                    statusFilter === 'PENDING' ? 'En attente' :
+                    statusFilter === 'CONFIRMED' ? 'Confirmée' :
+                    statusFilter === 'IN_PREPARATION' ? 'En préparation' :
+                    statusFilter === 'SHIPPED' ? 'Expédiée' :
+                    statusFilter === 'DELIVERED' ? 'Livrée' : statusFilter
+                  ) : 'Tous les statuts'}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatusFilter('')}>
+                  <Filter className="h-4 w-4" />
+                  Tous les statuts
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setStatusFilter('PENDING')}>
+                  <Clock className="h-4 w-4 text-yellow-600" />
+                  En attente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('CONFIRMED')}>
+                  <CheckCircle className="h-4 w-4 text-blue-600" />
+                  Confirmée
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('IN_PREPARATION')}>
+                  <Package className="h-4 w-4 text-orange-600" />
+                  En préparation
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('SHIPPED')}>
+                  <Truck className="h-4 w-4 text-purple-600" />
+                  Expédiée
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('DELIVERED')}>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  Livrée
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>

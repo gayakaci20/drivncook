@@ -47,7 +47,7 @@ const Checkbox = React.forwardRef<
           height="9"
           viewBox="0 0 9 9"
           fill="currentcolor"
-          xmlns="http://www.w3.org/2000/svg"
+          xmlns="http://www.w3.org/2000/svg" 
         >
           <path
             fillRule="evenodd"
@@ -61,7 +61,7 @@ const Checkbox = React.forwardRef<
           height="9"
           viewBox="0 0 9 9"
           fill="currentcolor"
-          xmlns="http://www.w3.org/2000/svg"
+          xmlns="http://www.w3.org/2000/svg" 
         >
           <path
             fillRule="evenodd"

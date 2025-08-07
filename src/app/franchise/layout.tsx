@@ -1,39 +1,42 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { FranchiseSidebar } from '@/components/franchise/franchise-sidebar'
 import { FranchiseHeader } from '@/components/franchise/franchise-header'
+import { ExtendedUser } from '@/types/auth'
+import { UserRole } from '@/types/prisma-enums'
+
 
 export default function FranchiseLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (isPending) return
 
     if (!session) {
       router.push('/login')
       return
     }
 
-    if (session.user.role !== 'FRANCHISEE') {
+    if ((session.user as ExtendedUser).role !== UserRole.FRANCHISEE) {
       router.push('/unauthorized')
       return
     }
 
-    if (!session.user.franchiseId) {
+    if (!(session.user as ExtendedUser).franchiseId) {
       router.push('/unauthorized')
       return
     }
-  }, [session, status, router])
+  }, [session, isPending, router])
 
-  if (status === 'loading') {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -44,7 +47,7 @@ export default function FranchiseLayout({
     )
   }
 
-  if (!session || session.user.role !== 'FRANCHISEE' || !session.user.franchiseId) {
+  if (!session || (session.user as ExtendedUser).role !== UserRole.FRANCHISEE || !(session.user as ExtendedUser).franchiseId) {
     return null
   }
 
