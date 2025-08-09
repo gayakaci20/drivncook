@@ -51,8 +51,13 @@ export const vehicleSchema = z.object({
   nextInspectionDate: z.string().optional(),
   insuranceNumber: z.string().optional(),
   insuranceExpiry: z.string().optional(),
-  franchiseId: z.string().optional()
+  franchiseId: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().trim().min(1).optional()
+  )
 })
+
+export const vehicleUpdateSchema = vehicleSchema.partial()
 
  
 export const maintenanceSchema = z.object({

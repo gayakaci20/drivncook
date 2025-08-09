@@ -62,7 +62,6 @@ export const auth = betterAuth({
       })
     }
 
-    // S'assurer que le franchiseId est synchronisé dans la session
     if (dbUser.franchiseId && user.user.franchiseId !== dbUser.franchiseId) {
       user.user.franchiseId = dbUser.franchiseId
     }
@@ -92,7 +91,7 @@ export async function getServerSession(headers: Headers) {
     const cookie = headers.get('cookie') || ''
     
     const response = await fetch(
-      new URL('/api/auth/session', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'), 
+      new URL('/api/auth/session', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'), 
       {
         headers: { cookie },
       }

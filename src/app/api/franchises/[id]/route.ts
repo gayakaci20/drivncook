@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { franchiseSchema } from '@/lib/validations'
+import { z } from 'zod'
 
 interface RouteParams {
   params: Promise<{
@@ -234,6 +236,91 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   } catch (error) {
     console.error('Erreur dans DELETE /api/franchises/[id]:', error)
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur serveur interne',
+      details: process.env.NODE_ENV === 'development' ? error : undefined
+    }, { status: 500 })
+  }
+}
+
+// Mise à jour d'un franchisé
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers()
+    })
+
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
+
+    if ((session.user as ExtendedUser).role !== UserRole.ADMIN) {
+      return NextResponse.json({ success: false, error: 'Permissions insuffisantes' }, { status: 403 })
+    }
+
+    const resolvedParams = await params
+    const franchiseId = resolvedParams.id
+
+    const existing = await prisma.franchise.findUnique({ where: { id: franchiseId } })
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Franchisé introuvable' }, { status: 404 })
+    }
+
+    const body = await request.json()
+
+    const updateSchema = franchiseSchema
+
+    const validation = updateSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json({ success: false, error: 'Données invalides', details: validation.error.issues }, { status: 400 })
+    }
+
+    const data = validation.data
+
+    if (data.siretNumber && data.siretNumber !== existing.siretNumber) {
+      const conflict = await prisma.franchise.findUnique({ where: { siretNumber: data.siretNumber } })
+      if (conflict) {
+        return NextResponse.json({ success: false, error: 'Ce numéro SIRET est déjà utilisé' }, { status: 400 })
+      }
+    }
+
+    const updated = await prisma.franchise.update({
+      where: { id: franchiseId },
+      data: {
+        businessName: data.businessName,
+        siretNumber: data.siretNumber,
+        vatNumber: data.vatNumber || null,
+        address: data.address,
+        city: data.city,
+        postalCode: data.postalCode,
+        region: data.region,
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        status: data.status as any,
+        entryFee: data.entryFee,
+        entryFeePaid: data.entryFeePaid,
+        entryFeeDate: data.entryFeeDate ? new Date(data.entryFeeDate) : null,
+        royaltyRate: data.royaltyRate,
+        contractStartDate: data.contractStartDate ? new Date(data.contractStartDate) : null,
+        contractEndDate: data.contractEndDate ? new Date(data.contractEndDate) : null
+      }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE',
+        tableName: 'franchises',
+        recordId: franchiseId,
+        oldValues: JSON.stringify(existing),
+        newValues: JSON.stringify(updated),
+        userId: (session.user as ExtendedUser).id
+      }
+    })
+
+    return NextResponse.json({ success: true, message: 'Franchisé mis à jour avec succès' })
+  } catch (error) {
+    console.error('Erreur dans PUT /api/franchises/[id]:', error)
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Erreur serveur interne',

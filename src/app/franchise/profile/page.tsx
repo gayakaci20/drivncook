@@ -13,7 +13,6 @@ import {
   Mail,
   Calendar,
   DollarSign,
-  Edit,
   FileText,
   AlertTriangle,
   CheckCircle
@@ -21,6 +20,7 @@ import {
 import { ExtendedUser } from '@/types/auth'
 import { addToast } from '@heroui/toast'
 import { UserRole } from '@/types/prisma-enums'
+import { useRouter } from 'next/navigation'
 
 interface FranchiseProfile {
   id: string
@@ -58,8 +58,7 @@ export default function FranchiseProfilePage() {
   const { data: session } = useSession()
   const [profile, setProfile] = useState<FranchiseProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editMode, setEditMode] = useState(false)
-
+  const router = useRouter()
   useEffect(() => {
     if ((session?.user as ExtendedUser).franchiseId && (session?.user as ExtendedUser).role === UserRole.FRANCHISEE) {
       fetchProfile()
@@ -173,10 +172,6 @@ export default function FranchiseProfilePage() {
             Informations personnelles et de votre franchise
           </p>
         </div>
-        <Button onClick={() => setEditMode(!editMode)}>
-          <Edit className="h-4 w-4 mr-2" />
-          {editMode ? 'Annuler' : 'Modifier'}
-        </Button>
       </div>
 
       {/* Statut de la franchise */}
@@ -382,17 +377,19 @@ export default function FranchiseProfilePage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button variant="outline" className="h-auto p-4">
-              <div className="text-center">
-                <FileText className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                <div>
-                  <p className="font-medium">Télécharger contrat</p>
-                  <p className="text-xs text-gray-600 dark:text-neutral-400">PDF signé</p>
+            <Button asChild variant="outline" className="h-auto p-4">
+              <a href={profile ? `/api/franchises/${profile.id}/contract` : '#'}>
+                <div className="text-center">
+                  <FileText className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                  <div>
+                    <p className="font-medium">Télécharger contrat</p>
+                    <p className="text-xs text-gray-600 dark:text-neutral-400">PDF signé</p>
+                  </div>
                 </div>
-              </div>
+              </a>
             </Button>
             
-            <Button variant="outline" className="h-auto p-4">
+            <Button variant="outline" className="h-auto p-4" onClick={() => router.push('/franchise/profile/contact')}>
               <div className="text-center">
                 <Mail className="h-6 w-6 mx-auto mb-2 text-green-600" />
                 <div>

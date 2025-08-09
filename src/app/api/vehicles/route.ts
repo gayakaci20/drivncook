@@ -166,6 +166,7 @@ export const POST = withAuth(
        
       const vehicleData = {
         ...validatedData,
+        franchiseId: validatedData.franchiseId?.trim() ? validatedData.franchiseId.trim() : undefined,
         purchaseDate: new Date(validatedData.purchaseDate),
         lastInspectionDate: validatedData.lastInspectionDate ? new Date(validatedData.lastInspectionDate) : null,
         nextInspectionDate: validatedData.nextInspectionDate ? new Date(validatedData.nextInspectionDate) : null,

@@ -17,7 +17,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import dynamic from 'next/dynamic'
-
  
 const FranchiseMap = dynamic(() => import('@/components/maps/FranchiseMap'), {
   ssr: false,
@@ -341,7 +340,7 @@ export default function AdminFranchisesPage() {
 
       {/* Filtres et recherche */}
       <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
-        <CardContent className="pt-6">
+        <CardContent className="pt-2 pb-2">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative group">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 group-focus-within:text-gray-700" />
@@ -553,9 +552,9 @@ export default function AdminFranchisesPage() {
                                 Modifier
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => router.push(`/admin/franchises/${franchise.id}/documents`)}>
-                                <Download className="h-4 w-4" />
-                                Documents
+                              <DropdownMenuItem onClick={() => router.push(`/admin/franchises/${franchise.id}/vehicles`)}>
+                                <Truck className="h-4 w-4" />
+                                Assigner véhicule
                               </DropdownMenuItem>
                               {(session?.user as ExtendedUser).role === UserRole.ADMIN && (
                                 <>

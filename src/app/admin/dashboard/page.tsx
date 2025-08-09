@@ -32,6 +32,9 @@ import {
 import { ExtendedUser } from '@/types/auth'
 import { safeFetchJson } from '@/lib/utils'
 import { UserRole } from '@/types/prisma-enums'
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts'
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
+import { ChartLegendContent, ChartTooltipContent } from '@/components/ui/charts-base'
 
 interface DashboardStats {
   overview: {
@@ -192,7 +195,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold text-orange-600">{stats.overview.pendingOrders}</div>
-            <Button variant="outline" size="sm" className="mt-2 rounded-xl">Voir les commandes</Button>
+            <Button variant="outline" size="sm" className="mt-2 rounded-xl" onClick={() => router.push('/admin/orders')}>Voir les commandes</Button>
           </CardContent>
         </Card>
 
@@ -203,48 +206,27 @@ export default function AdminDashboardPage() {
           <CardContent>
             <div className="text-2xl font-semibold text-red-600">{formatCurrency(stats.overview.unpaidAmount)}</div>
             <p className="text-xs text-muted-foreground">{stats.overview.unpaidCount} factures</p>
-            <Button variant="outline" size="sm" className="mt-2 rounded-xl">Voir les factures</Button>
+            <Button variant="outline" size="sm" className="mt-2 rounded-xl" onClick={() => router.push('/admin/finance/invoices')}>Voir les factures</Button>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Building2 className="h-4 w-4 text-blue-500" /> Actions rapides</CardTitle>
+            <CardTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4 text-blue-500" /> Nouveau franchisé</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full rounded-xl">
-                  <Plus className="h-4 w-4" />
-                  Actions rapides
-                  <ChevronDown className="h-4 w-4 ml-auto" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem>
-                  <UserPlus className="h-4 w-4" />
-                  Nouveau franchisé
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Truck className="h-4 w-4" />
-                  Nouveau véhicule
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <FileBarChart className="h-4 w-4" />
-                  Générer rapport
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <hr className="my-3" />
-            
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700 dark:text-neutral-300">Filtres rapides :</p>
-              <CheckboxWithLabel label="Franchisés actifs uniquement" size="sm" />
-              <CheckboxWithLabel label="Véhicules disponibles" size="sm" />
-              <CheckboxWithLabel label="Notifications temps réel" size="sm" defaultChecked />
-            </div>
+            <Button variant="outline" className="w-full rounded-xl" onClick={() => router.push('/admin/franchises/new')}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nouveau franchisé
+            </Button>
+            <Button variant="outline" className="w-full rounded-xl" onClick={() => router.push('/admin/vehicles/new')}>
+              <Truck className="h-4 w-4 mr-1" />
+              Nouveau véhicule
+            </Button>
+            <Button variant="outline" className="w-full rounded-xl" onClick={() => router.push('/admin/finance/sales-reports')}>
+              <FileBarChart className="h-4 w-4 mr-1" />
+              Générer rapport
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -263,11 +245,66 @@ export default function AdminDashboardPage() {
               <CardTitle>Évolution des ventes (30 derniers jours)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Graphique des ventes quotidiennes
-                <br />
-                <small>(Intégration avec Recharts à venir)</small>
-              </div>
+              {(() => {
+                const data = stats.charts.dailySales.map((d) => ({
+                  date: d.date,
+                  sales: d.sales,
+                  royalties: d.royalties,
+                }))
+                const series = [
+                  { key: 'sales', label: 'Ventes', color: '#10B981' },
+                  { key: 'royalties', label: 'Redevances', color: '#6366F1' },
+                ] as const
+                const formatNumber = (n: number) =>
+                  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
+                const formatDate = (iso: string) => {
+                  try {
+                    const d = new Date(iso)
+                    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+                  } catch {
+                    return String(iso)
+                  }
+                }
+                return (
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickFormatter={(v: string) => formatDate(String(v))} tickLine={false} />
+                        <YAxis tickLine={false} tickFormatter={(v: number) => formatNumber(Number(v))} />
+                        <Tooltip
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value: ValueType, name: NameType) => {
+                                const numeric = typeof value === 'number' ? value : Number(value)
+                                const key = String(name)
+                                const s = series.find((s) => s.key === key)
+                                return [formatNumber(numeric), s?.label ?? key]
+                              }}
+                              labelFormatter={(label: unknown) => formatDate(String(label))}
+                            />
+                          }
+                        />
+                        <Legend content={<ChartLegendContent />} />
+                        {series.map((s) => (
+                          <Area
+                            key={s.key}
+                            type={'monotone'}
+                            dataKey={s.key}
+                            name={s.key}
+                            stroke={s.color}
+                            fill={s.color}
+                            fillOpacity={0.15}
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

@@ -192,7 +192,10 @@ export async function GET(request: NextRequest) {
       myOrders,
       mySales,
       myInvoices,
-      recentReports
+      recentReports,
+      myFranchise,
+      overdueInvoicesCount,
+      pendingInvoicesCount
     ] = await Promise.all([
        
       prisma.vehicle.findMany({
@@ -268,8 +271,36 @@ export async function GET(request: NextRequest) {
           royaltyAmount: true
         },
         orderBy: { reportDate: 'asc' }
+      }),
+      
+      prisma.franchise.findUnique({
+        where: { id: (session.user as ExtendedUser).franchiseId as string },
+        select: {
+          status: true,
+          contractStartDate: true,
+          contractEndDate: true,
+          isActive: true,
+          entryFeePaid: true,
+          entryFeeDate: true,
+          entryFee: true
+        }
+      }),
+      prisma.invoice.count({
+        where: {
+          franchiseId: (session.user as ExtendedUser).franchiseId as string,
+          paymentStatus: 'OVERDUE'
+        }
+      }),
+      prisma.invoice.count({
+        where: {
+          franchiseId: (session.user as ExtendedUser).franchiseId as string,
+          paymentStatus: 'PENDING'
+        }
       })
     ])
+
+    // Payments reflect ONLY entry fee status (requested behavior)
+    const paymentsStatus = myFranchise?.entryFeePaid ? 'PAID' : 'PENDING'
 
     return NextResponse.json({
       success: true,
@@ -282,6 +313,16 @@ export async function GET(request: NextRequest) {
           averageTicket: Number(mySales._avg.averageTicket || 0),
           totalRoyalties: Number(mySales._sum.royaltyAmount || 0),
           pendingInvoices: myInvoices.filter((i: any) => i.paymentStatus === 'PENDING').length
+        },
+        statusSummary: {
+          contract: myFranchise?.status ?? 'PENDING',
+          vehicleAssigned: myVehicles.some((v: any) => v.status === 'ASSIGNED'),
+          payments: paymentsStatus,
+          entryFeePaid: myFranchise?.entryFeePaid ?? null,
+          entryFeeDate: myFranchise?.entryFeeDate ?? null,
+          contractStartDate: myFranchise?.contractStartDate ?? null,
+          contractEndDate: myFranchise?.contractEndDate ?? null,
+          entryFee: myFranchise ? Number(myFranchise.entryFee) : null
         },
         vehicles: myVehicles.map((v: any) => ({
           ...v,

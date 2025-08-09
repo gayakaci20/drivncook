@@ -83,7 +83,7 @@ const navigation: NavItem[] = [
   },
   {
     title: 'Support',
-    href: '/franchise/support',
+    href: '/franchise/profile/contact',
     icon: MessageSquare,
     description: 'Aide et contact'
   },

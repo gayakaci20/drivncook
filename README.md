@@ -12,9 +12,9 @@ Plateforme de gestion dédiée aux franchisés de food trucks. Un espace sécuri
 - **Authentification** : Better-Auth
 - **Styling** : Tailwind CSS 4
 - **UI Components** : Radix UI, Lucide React
-- **Graphiques** : ApexCharts
+- **Graphiques** : Untitled Ul Charts
 - **Validation** : React Hook Form avec Zod
-- **PDF Generation** : Puppeteer
+- **PDF Generation** : React-pdf
 - **File Upload** : UploadThing
 
 ## Fonctionnalités principales
@@ -50,6 +50,7 @@ drivncook/
 │   ├── hooks/                 # Hooks personnalisés
 │   ├── lib/                   # Utilitaires et configurations
 │   └── types/                 # Définitions TypeScript
+│   └── utils/                 # Utilitaires partagés (helpers de style, détection React, etc.)
 ├── prisma/                    # Schema et migrations Prisma
 ├── public/                    # Assets statiques
 └── ...

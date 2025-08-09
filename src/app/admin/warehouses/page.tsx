@@ -16,6 +16,7 @@ import {
   Phone,
   Mail
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface Warehouse {
   id: string
@@ -42,6 +43,7 @@ interface Warehouse {
 }
 
 export default function AdminWarehousesPage() {
+  const router = useRouter()
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -103,7 +105,7 @@ export default function AdminWarehousesPage() {
             Gérez votre réseau d'entrepôts et leur capacité
           </p>
         </div>
-        <Button>
+        <Button onClick={() => router.push('/admin/warehouses/new')}>
           <Plus className="h-4 w-4 mr-2" />
           Nouvel entrepôt
         </Button>
@@ -193,7 +195,7 @@ export default function AdminWarehousesPage() {
             <p className="text-gray-600 dark:text-neutral-400 mb-6">
               Commencez par ajouter votre premier entrepôt
             </p>
-            <Button>
+            <Button onClick={() => router.push('/admin/warehouses/new')}>
               <Plus className="h-4 w-4 mr-2" />
               Créer un entrepôt
             </Button>
@@ -282,11 +284,11 @@ export default function AdminWarehousesPage() {
                     )}
 
                     <div className="flex gap-2 pt-2">
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push(`/admin/warehouses/${warehouse.id}`)}>
                         <Eye className="h-4 w-4 mr-2" />
                         Voir stocks
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push(`/admin/warehouses/${warehouse.id}/edit`)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Modifier
                       </Button>

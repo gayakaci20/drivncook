@@ -75,7 +75,7 @@ class EmailService {
       console.log('Email service initialized successfully')
     } catch (error) {
       console.error('Error initializing email service:', error)
-      throw new Error('Impossible d\'initialiser le service d\'email')
+      throw new Error('Unable to initialize email service')
     }
   }
 

@@ -16,7 +16,11 @@ import {
   Building2,
   BarChart3,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  User,
+  Plus,
+  Wrench
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -34,11 +38,16 @@ const navigation: NavItem[] = [
     icon: LayoutDashboard
   },
   {
+    title: 'Calendrier',
+    href: '/admin/calendar',
+    icon: Calendar
+  },
+  {
     title: 'Franchisés',
-    icon: Users,
+    icon: User,
     children: [
       { title: 'Tous les franchisés', href: '/admin/franchises', icon: Users },
-      { title: 'Nouveau franchisé', href: '/admin/franchises/new', icon: Users },
+      { title: 'Nouveau franchisé', href: '/admin/franchises/new', icon: Plus },
     ]
   },
   {
@@ -46,14 +55,15 @@ const navigation: NavItem[] = [
     icon: Truck,
     children: [
       { title: 'Parc automobile', href: '/admin/vehicles', icon: Truck },
-      { title: 'Nouveau véhicule', href: '/admin/vehicles/new', icon: Truck },
-      { title: 'Maintenance', href: '/admin/vehicles/maintenance', icon: Truck }
+      { title: 'Nouveau véhicule', href: '/admin/vehicles/new', icon: Plus },
+      { title: 'Maintenance', href: '/admin/vehicles/maintenance', icon: Wrench }
     ]
   },
   {
     title: 'Entrepôts',
     icon: Building2,
     children: [
+      { title: 'Liste des entrepôts', href: '/admin/warehouses', icon: Building2 },
       { title: 'Stocks', href: '/admin/inventory', icon: Package },
       { title: 'Commandes', href: '/admin/orders', icon: ShoppingCart },
       { title: 'Produits', href: '/admin/products', icon: Package }
@@ -63,9 +73,10 @@ const navigation: NavItem[] = [
     title: 'Finances',
     icon: DollarSign,
     children: [
-      { title: 'Rapports de vente', href: '/admin/sales-reports', icon: BarChart3 },
-      { title: 'Factures', href: '/admin/invoices', icon: FileText },
-      { title: 'Redevances', href: '/admin/royalties', icon: DollarSign }
+      { title: 'Gestion Financière', href: '/admin/finance', icon: DollarSign },
+      { title: 'Rapports de vente', href: '/admin/finance/sales-reports', icon: BarChart3 },
+      { title: 'Factures', href: '/admin/finance/invoices', icon: FileText },
+      { title: 'Redevances', href: '/admin/finance/royalties', icon: DollarSign }
     ]
   },
   {

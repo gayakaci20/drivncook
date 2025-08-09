@@ -21,13 +21,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Vérifier le token de réinitialisation
     const verification = await prisma.verification.findFirst({
       where: {
         identifier: email.toLowerCase(),
         value: token,
         expiresAt: {
-          gt: new Date() // Token non expiré
+          gt: new Date()
         }
       }
     })
@@ -39,7 +38,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Vérifier que l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       select: { id: true, isActive: true }
@@ -52,21 +50,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hasher le nouveau mot de passe
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Mettre à jour le mot de passe
     await prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword }
     })
 
-    // Supprimer le token utilisé
     await prisma.verification.delete({
       where: { id: verification.id }
     })
 
-    // Supprimer tous les autres tokens de réinitialisation pour cet utilisateur
     await prisma.verification.deleteMany({
       where: {
         identifier: email.toLowerCase(),

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CheckoutDialog } from '@/components/ui/pay'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,9 @@ import {
 } from 'lucide-react'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts'
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
+import { ChartLegendContent, ChartTooltipContent } from '@/components/ui/charts-base'
 
 interface FranchiseeStats {
   overview: {
@@ -41,6 +45,15 @@ interface FranchiseeStats {
     averageTicket: number
     totalRoyalties: number
     pendingInvoices: number
+  }
+  statusSummary?: {
+    contract: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'TERMINATED' | string
+    vehicleAssigned: boolean
+    payments: 'PENDING' | 'PAID' | 'OVERDUE' | string
+    entryFeePaid: boolean | null
+    entryFeeDate: string | null
+    contractStartDate: string | null
+    contractEndDate: string | null
   }
   vehicles: Array<{
     id: string
@@ -190,6 +203,26 @@ export default function FranchiseDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {stats.statusSummary?.entryFeePaid === false && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="text-orange-800 dark:text-orange-200 font-semibold text-sm">Frais d'entrée en attente</div>
+              <div className="text-sm text-orange-700 dark:text-orange-300">
+                Réglez vos frais d'entrée pour activer votre franchise.
+              </div>
+            </div>
+            <div>
+              <CheckoutDialog
+                amountInCents={Math.round((stats as any).statusSummary && (stats as any).statusSummary.entryFee ? Number((stats as any).statusSummary.entryFee) * 100 : 0)}
+                description="Frais d'entrée franchise"
+                triggerLabel="Payer les frais d'entrée"
+                buttonLabel="Payer maintenant"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900 dark:text-neutral-100">
           Mon Dashboard
@@ -208,7 +241,7 @@ export default function FranchiseDashboardPage() {
             <CardTitle className="text-sm font-medium">
               CA total (30j)
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="size-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center"><DollarSign className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -225,7 +258,7 @@ export default function FranchiseDashboardPage() {
             <CardTitle className="text-sm font-medium">
               Ticket moyen
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <div className="size-7 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center"><TrendingUp className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -242,7 +275,7 @@ export default function FranchiseDashboardPage() {
             <CardTitle className="text-sm font-medium">
               Mes véhicules
             </CardTitle>
-            <Truck className="h-4 w-4 text-muted-foreground" />
+            <div className="size-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"><Truck className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -259,14 +292,14 @@ export default function FranchiseDashboardPage() {
             <CardTitle className="text-sm font-medium">
               Redevances dues
             </CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <div className="size-7 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex items-center justify-center"><FileText className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {formatCurrency(stats.overview.totalRoyalties)}
             </div>
             <p className="text-xs text-muted-foreground">
-              4% du CA
+              {stats.overview.totalRoyalties * 0.04} €
             </p>
           </CardContent>
         </Card>
@@ -310,7 +343,7 @@ export default function FranchiseDashboardPage() {
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuItem>
                   <ShoppingCart className="h-4 w-4" />
-                  Nouvelle commande
+                  Nouvelle commande 
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <PenTool className="h-4 w-4" />
@@ -337,16 +370,50 @@ export default function FranchiseDashboardPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm">Contrat</span>
-                <Badge variant="default">Actif</Badge>
+                {(() => {
+                  const s = stats.statusSummary?.contract ?? 'PENDING'
+                  const mapping = {
+                    ACTIVE: { label: 'Actif', variant: 'default' as const },
+                    PENDING: { label: 'En attente', variant: 'secondary' as const },
+                    SUSPENDED: { label: 'Suspendu', variant: 'destructive' as const },
+                    TERMINATED: { label: 'Terminé', variant: 'destructive' as const },
+                  } as const
+                  const isKnown = s && s in mapping
+                  const variant: 'default' | 'secondary' | 'destructive' | 'outline' = isKnown
+                    ? mapping[s as keyof typeof mapping].variant
+                    : 'outline'
+                  const label = isKnown ? mapping[s as keyof typeof mapping].label : (s ?? 'N/A')
+                  return <Badge variant={variant}>{label}</Badge>
+                })()}
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Véhicule</span>
-                <Badge variant="default">Assigné</Badge>
+                <Badge variant={stats.statusSummary?.vehicleAssigned ? 'default' : 'secondary'}>
+                  {stats.statusSummary?.vehicleAssigned ? 'Assigné' : 'Non assigné'}
+                </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">Paiements</span>
-                <Badge variant="default">À jour</Badge>
+                {(() => {
+                  const p = (stats.statusSummary?.entryFeePaid === false) ? 'PENDING' : 'PAID'
+                  const mapping = {
+                    PAID: { label: 'À jour', variant: 'default' as const },
+                    PENDING: { label: 'En attente', variant: 'secondary' as const },
+                    OVERDUE: { label: 'En retard', variant: 'destructive' as const },
+                  } as const
+                  const isKnown = p && p in mapping
+                  const variant: 'default' | 'secondary' | 'destructive' | 'outline' = isKnown
+                    ? mapping[p as keyof typeof mapping].variant
+                    : 'outline'
+                  const label = isKnown ? mapping[p as keyof typeof mapping].label : (p ?? 'N/A')
+                  return <Badge variant={variant}>{label}</Badge>
+                })()}
               </div>
+              {stats.statusSummary?.entryFeePaid === false && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  Droits d’entrée non réglés
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -476,11 +543,70 @@ export default function FranchiseDashboardPage() {
               <CardTitle>Évolution de mes ventes (30 derniers jours)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Graphique de l&apos;évolution de vos ventes
-                <br />
-                <small>(Intégration avec Recharts à venir)</small>
-              </div>
+              {(() => {
+                const data = stats.charts.salesEvolution.map((d) => ({
+                  date: d.date,
+                  sales: d.sales,
+                  transactions: d.transactions,
+                  averageTicket: d.averageTicket,
+                  royalties: d.royalties,
+                }))
+                const series = [
+                  { key: 'sales', label: 'Ventes', color: '#10B981' },
+                  { key: 'transactions', label: 'Transactions', color: '#F59E0B' },
+                  { key: 'royalties', label: 'Redevances', color: '#6366F1' },
+                ] as const
+                const formatNumber = (n: number) => new Intl.NumberFormat('fr-FR').format(n)
+                const formatCurrency = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
+                const formatDate = (iso: string) => {
+                  try {
+                    const d = new Date(iso)
+                    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+                  } catch {
+                    return String(iso)
+                  }
+                }
+                return (
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickFormatter={(v: string) => formatDate(String(v))} tickLine={false} />
+                        <YAxis tickLine={false} tickFormatter={(v: number) => formatNumber(Number(v))} />
+                        <Tooltip
+                          content={
+                            <ChartTooltipContent
+                              formatter={(value: ValueType, name: NameType) => {
+                                const numeric = typeof value === 'number' ? value : Number(value)
+                                const key = String(name)
+                                const s = series.find((s) => s.key === key)
+                                const formatted = key === 'transactions' ? formatNumber(numeric) : formatCurrency(numeric)
+                                return [formatted, s?.label ?? key]
+                              }}
+                              labelFormatter={(label: unknown) => formatDate(String(label))}
+                            />
+                          }
+                        />
+                        <Legend content={<ChartLegendContent />} />
+                        {series.map((s) => (
+                          <Area
+                            key={s.key}
+                            type={'monotone'}
+                            dataKey={s.key}
+                            name={s.key}
+                            stroke={s.color}
+                            fill={s.color}
+                            fillOpacity={0.15}
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
