@@ -22,12 +22,15 @@ export default function NewProductPage() {
   const { data: session, isPending } = useSession()
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<CategoryOption[]>([])
+  const defaultCategoryNames = ['Ingrédients frais', 'Plats préparés', 'Boissons', 'Conditionnement']
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; city: string }>>([])
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    reset
+    reset,
+    setValue
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema as any),
     defaultValues: {
@@ -42,6 +45,7 @@ export default function NewProductPage() {
       return
     }
     loadCategories()
+    loadWarehouses()
   }, [session, isPending, router])
 
   const loadCategories = async () => {
@@ -49,9 +53,66 @@ export default function NewProductPage() {
       const res = await fetch('/api/product-categories?limit=1000')
       if (!res.ok) return
       const json = await res.json()
-      const items = (json?.data?.data || []) as Array<{ id: string; name: string }>
-      setCategories(items.map(c => ({ id: c.id, name: c.name })))
+      let items = (json?.data?.data || []) as Array<{ id: string; name: string }>
+      const existingNames = new Set(items.map(i => i.name))
+      const missing = defaultCategoryNames.filter(n => !existingNames.has(n))
+      if (missing.length) {
+        for (const name of missing) {
+          try { await fetch('/api/product-categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }) } catch {}
+        }
+        const res2 = await fetch('/api/product-categories?limit=1000')
+        if (res2.ok) { const json2 = await res2.json(); items = (json2?.data?.data || []) }
+      }
+      const pickByName = new Map<string, { id: string; name: string }>()
+      for (const name of defaultCategoryNames) {
+        const found = items.find(i => i.name === name)
+        if (found) pickByName.set(name, { id: found.id, name: found.name })
+      }
+      const orderedUnique = defaultCategoryNames
+        .filter(n => pickByName.has(n))
+        .map(n => pickByName.get(n)!)
+      setCategories(orderedUnique)
     } catch {}
+  }
+
+  const loadWarehouses = async () => {
+    try {
+      const res = await fetch('/api/warehouses?limit=1000')
+      if (!res.ok) return
+      const json = await res.json()
+      const items = (json?.data?.data || []) as Array<{ id: string; name: string; city: string }>
+      setWarehouses(items)
+    } catch {}
+  }
+
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [quickCategoryName, setQuickCategoryName] = useState('')
+  const [quickCategoryDescription, setQuickCategoryDescription] = useState('')
+
+  const handleCreateCategory = async () => {
+    if (!quickCategoryName.trim()) return
+    setCreatingCategory(true)
+    try {
+      const res = await fetch('/api/product-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: quickCategoryName.trim(), description: quickCategoryDescription || undefined })
+      })
+      const json = await res.json()
+      if (res.ok) {
+        const created = { id: json?.data?.id as string, name: json?.data?.name as string }
+        setCategories(prev => [...prev, created])
+        setValue('categoryId', created.id as any, { shouldValidate: true })
+        setQuickCategoryName('')
+        setQuickCategoryDescription('')
+      } else {
+        alert(json?.error || 'Erreur lors de la création de la catégorie')
+      }
+    } catch {
+      alert('Erreur lors de la création de la catégorie')
+    } finally {
+      setCreatingCategory(false)
+    }
   }
 
   const onSubmit = async (data: ProductFormData) => {
@@ -69,6 +130,16 @@ export default function NewProductPage() {
       })
       if (res.ok) {
         reset()
+        const created = await res.json()
+        const productId = created?.data?.id as string | undefined
+        const selectedWarehouse = (document.getElementById('warehouseId') as HTMLSelectElement | null)?.value
+        if (productId && selectedWarehouse) {
+          await fetch('/api/stocks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId, warehouseId: selectedWarehouse, quantity: 0, operation: 'SET' })
+          })
+        }
         router.push('/admin/inventory')
       } else {
         const err = await res.json()
@@ -207,6 +278,19 @@ export default function NewProductPage() {
                   ))}
                 </select>
                 {errors.categoryId && <p className="text-sm text-red-600 mt-1">{errors.categoryId.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Entrepôt (assignation initiale)</label>
+                <select
+                  id="warehouseId"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
+                >
+                  <option value="">Ne pas assigner</option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name} ({w.city})</option>
+                  ))}
+                </select>
               </div>
             </div>
 

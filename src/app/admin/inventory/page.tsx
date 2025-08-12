@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -211,6 +211,17 @@ export default function AdminInventoryPage() {
     setStockAlerts(alerts)
   }
 
+  const filteredProducts = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    return products.filter((p) => {
+      if (categoryFilter && p.category.name !== categoryFilter) return false
+      if (warehouseFilter && !p.stocks.some(s => s.warehouse.id === warehouseFilter)) return false
+      if (!q) return true
+      const haystack = [p.name, p.sku, p.barcode || '', p.category.name].join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [products, categoryFilter, warehouseFilter, searchTerm])
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
@@ -271,6 +282,10 @@ export default function AdminInventoryPage() {
           <Button variant="outline" className="flex items-center gap-2 rounded-xl">
             <Download className="h-4 w-4" />
             Exporter
+          </Button>
+          <Button onClick={() => router.push('/admin/inventory/new')} className="flex items-center gap-2 rounded-xl">
+            <Plus className="h-4 w-4" />
+            Ajouter du stock
           </Button>
           <Button onClick={() => router.push('/admin/products/new')} className="flex items-center gap-2 rounded-xl">
             <Plus className="h-4 w-4" />
@@ -465,7 +480,7 @@ export default function AdminInventoryPage() {
 
         <TabsContent value="products" className="space-y-4">
           <div className="grid gap-4">
-            {products.map((product) => {
+            {filteredProducts.map((product) => {
               const totalStock = product.stocks.reduce((sum, stock) => sum + stock.quantity, 0)
               const reservedStock = product.stocks.reduce((sum, stock) => sum + stock.reservedQty, 0)
               const availableStock = totalStock - reservedStock
@@ -545,6 +560,14 @@ export default function AdminInventoryPage() {
                             onClick={() => router.push(`/admin/products/${product.id}/edit`)}
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/admin/inventory/new/${product.id}`)}
+                            title="Ajouter du stock"
+                          >
+                            <Plus className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>

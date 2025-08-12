@@ -2,82 +2,41 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { 
   withAuth, 
-  withErrorHandling,
+  withErrorHandling, 
+  withValidation,
   createSuccessResponse,
   createErrorResponse
 } from '@/lib/api-utils'
-
+import { orderUpdateSchema } from '@/lib/validations'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 
-interface RouteContext {
-  params: {
-    id: string
-  }
-}
-
- 
 export const GET = withAuth(
-  withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
-    const { id } = context.params
-
-     
-    const where: any = { id }
-    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
-      where.franchiseId = (session.user as ExtendedUser).franchiseId
-    }
-
+  withErrorHandling(async (request: NextRequest, { params }: { params: { id: string } }, session: any) => {
+    const { id } = params
     const order = await prisma.order.findUnique({
-      where,
+      where: { id },
       include: {
         franchise: {
           include: {
             user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true
-              }
+              select: { firstName: true, lastName: true, email: true }
             }
           }
         },
-        createdBy: {
-          select: {
-            firstName: true,
-            lastName: true
-          }
-        },
-        updatedBy: {
-          select: {
-            firstName: true,
-            lastName: true
-          }
-        },
+        createdBy: { select: { firstName: true, lastName: true } },
         orderItems: {
           include: {
-            product: {
-              select: {
-                name: true,
-                description: true,
-                sku: true,
-                unit: true
-              }
-            },
-            warehouse: {
-              select: {
-                name: true,
-                city: true,
-                address: true
-              }
-            }
+            product: { select: { id: true, name: true, sku: true, unit: true } },
+            warehouse: { select: { id: true, name: true, city: true } }
           }
         }
       }
     })
+    if (!order) return createErrorResponse('Commande introuvable', 404)
 
-    if (!order) {
-      return createErrorResponse('Commande introuvable', 404)
+    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && order.franchiseId !== (session.user as ExtendedUser).franchiseId) {
+      return createErrorResponse('Permission refusée', 403)
     }
 
     return createSuccessResponse(order)
@@ -85,137 +44,33 @@ export const GET = withAuth(
   [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
- 
 export const PUT = withAuth(
-  withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
-    const { id } = context.params
-    const body = await request.json()
+  withValidation(
+    orderUpdateSchema,
+    withErrorHandling(async (request: NextRequest, { params }: { params: { id: string } }, session: any, validatedData: any) => {
+      const { id } = params
+      const existing = await prisma.order.findUnique({ where: { id } })
+      if (!existing) return createErrorResponse('Commande introuvable', 404)
 
-     
-    const where: any = { id }
-    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && (session.user as ExtendedUser).franchiseId) {
-      where.franchiseId = (session.user as ExtendedUser).franchiseId
-    }
+      if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && existing.franchiseId !== (session.user as ExtendedUser).franchiseId) {
+        return createErrorResponse('Permission refusée', 403)
+      }
 
-    const existingOrder = await prisma.order.findUnique({ where })
-
-    if (!existingOrder) {
-      return createErrorResponse('Commande introuvable', 404)
-    }
-
-     
-    const allowedUpdates: any = {}
-    
-    if (body.status && ['PENDING', 'CONFIRMED', 'IN_PREPARATION', 'SHIPPED', 'DELIVERED', 'CANCELLED'].includes(body.status)) {
-      allowedUpdates.status = body.status
-    }
-
-    if (body.requestedDeliveryDate) {
-      allowedUpdates.requestedDeliveryDate = new Date(body.requestedDeliveryDate)
-    }
-
-    if (body.actualDeliveryDate) {
-      allowedUpdates.actualDeliveryDate = new Date(body.actualDeliveryDate)
-    }
-
-    if (body.notes) {
-      allowedUpdates.notes = body.notes
-    }
-
-    allowedUpdates.updatedById = (session.user as ExtendedUser).id
-
-     
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: allowedUpdates,
-      include: {
-        franchise: {
-          include: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          }
+      const order = await prisma.order.update({
+        where: { id },
+        data: {
+          status: validatedData.status || existing.status,
+          requestedDeliveryDate: validatedData.requestedDeliveryDate ? new Date(validatedData.requestedDeliveryDate) : existing.requestedDeliveryDate,
+          notes: validatedData.notes !== undefined ? validatedData.notes : existing.notes
         },
-        orderItems: {
-          include: {
-            product: true,
-            warehouse: true
-          }
+        include: {
+          orderItems: true
         }
-      }
+      })
+      return createSuccessResponse(order, 'Commande mise à jour')
     })
-
-     
-    await prisma.auditLog.create({
-      data: {
-        action: 'UPDATE',
-        tableName: 'orders',
-        recordId: id,
-        oldValues: JSON.stringify(existingOrder),
-        newValues: JSON.stringify(updatedOrder),
-        userId: (session.user as ExtendedUser).id
-      }
-    })
-
-    return createSuccessResponse(updatedOrder, 'Commande mise à jour avec succès')
-  }),
+  ),
   [UserRole.ADMIN, UserRole.FRANCHISEE]
 )
 
- 
-export const DELETE = withAuth(
-  withErrorHandling(async (request: NextRequest, context: RouteContext, session: any) => {
-    const { id } = context.params
-
-     
-    const existingOrder = await prisma.order.findUnique({
-      where: { id },
-      include: {
-        orderItems: true
-      }
-    })
-
-    if (!existingOrder) {
-      return createErrorResponse('Commande introuvable', 404)
-    }
-
-     
-    if ((session.user as ExtendedUser).role === UserRole.FRANCHISEE && existingOrder.franchiseId !== (session.user as ExtendedUser).franchiseId) {
-      return createErrorResponse('Permission refusée', 403)
-    }
-
-     
-    if (!['DRAFT', 'PENDING'].includes(existingOrder.status)) {
-      return createErrorResponse('Impossible de supprimer une commande en cours de traitement', 400)
-    }
-
-     
-    await prisma.$transaction(async (tx: any) => {
-      await tx.orderItem.deleteMany({
-        where: { orderId: id }
-      })
-
-      await tx.order.delete({
-        where: { id }
-      })
-    })
-
-     
-    await prisma.auditLog.create({
-      data: {
-        action: 'DELETE',
-        tableName: 'orders',
-        recordId: id,
-        oldValues: JSON.stringify(existingOrder),
-        userId: (session.user as ExtendedUser).id
-      }
-    })
-
-    return createSuccessResponse(null, 'Commande supprimée avec succès')
-  }),
-  [UserRole.ADMIN, UserRole.FRANCHISEE]
-)
+// NOTE: DELETE handler can be added later if needed

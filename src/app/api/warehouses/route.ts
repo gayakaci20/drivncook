@@ -26,9 +26,9 @@ export const GET = withAuth(
     
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } }
+        { name: { contains: search } },
+        { city: { contains: search } },
+        { address: { contains: search } }
       ]
     }
 

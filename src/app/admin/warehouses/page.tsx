@@ -113,72 +113,58 @@ export default function AdminWarehousesPage() {
 
       {/* Statistiques rapides */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Total entrepôts</p>
-                <p className="text-2xl font-bold text-blue-600">{warehouses.length}</p>
-              </div>
-              <Building2 className="h-8 w-8 text-blue-600" />
-            </div>
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total entrepôts</CardTitle>
+            <div className="size-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center"><Building2 className="h-4 w-4" /></div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{warehouses.length}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Entrepôts actifs</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {warehouses.filter(w => w.isActive).length}
-                </p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Entrepôts actifs</CardTitle>
+            <div className="size-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"><TrendingUp className="h-4 w-4" /></div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{warehouses.filter(w => w.isActive).length}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Produits stockés</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {warehouses.reduce((sum, w) => sum + w._count.stocks, 0)}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-purple-600" />
-            </div>
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Produits stockés</CardTitle>
+            <div className="size-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center"><Package className="h-4 w-4" /></div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{warehouses.reduce((sum, w) => sum + w._count.stocks, 0)}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Capacité totale</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {warehouses.reduce((sum, w) => sum + w.capacity, 0).toLocaleString()}
-                </p>
-              </div>
-              <Building2 className="h-8 w-8 text-orange-600" />
-            </div>
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Capacité totale</CardTitle>
+            <div className="size-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center"><Building2 className="h-4 w-4" /></div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{warehouses.reduce((sum, w) => sum + w.capacity, 0).toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Recherche */}
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
         <CardContent className="p-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="relative group">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
             <input
               type="text"
               placeholder="Rechercher par nom, ville, région..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 h-10 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
+              className="w-full pl-10 pr-4 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm backdrop-blur-md outline-none transition-all focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50"
             />
           </div>
         </CardContent>
@@ -186,7 +172,7 @@ export default function AdminWarehousesPage() {
 
       {/* Liste des entrepôts */}
       {warehouses.length === 0 ? (
-        <Card>
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
           <CardContent className="p-12 text-center">
             <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-neutral-100 mb-2">
@@ -208,8 +194,8 @@ export default function AdminWarehousesPage() {
             const capacityBadge = getCapacityBadge(capacityUsage)
 
             return (
-              <Card key={warehouse.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
+              <Card key={warehouse.id} className="rounded-2xl border-gray-200/80 dark:border-neutral-800 hover:shadow-md transition-shadow">
+                <CardHeader className="flex items-center justify-between space-y-0 pb-2">
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-lg">{warehouse.name}</CardTitle>

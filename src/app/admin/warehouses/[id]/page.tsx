@@ -79,18 +79,30 @@ export default function WarehouseDetailPage({ params }: PageProps) {
   const fetchData = async () => {
     try {
       const [wRes, sRes] = await Promise.all([
-        fetch('/api/warehouses?limit=1000'),
-        fetch(`/api/stocks?warehouseId=${resolvedParams.id}&limit=1000`)
+        fetch(`/api/warehouses/${resolvedParams.id}`, { cache: 'no-store' }),
+        fetch(`/api/stocks?warehouseId=${resolvedParams.id}&limit=1000`, { cache: 'no-store' })
       ])
+
+      let warehouseFromApi: (WarehouseDetail & { stocks?: any[] }) | null = null
+      let stocksFromApi: StockItem[] = []
+
       if (wRes.ok) {
         const wJson = await wRes.json()
-        const list: WarehouseDetail[] = wJson?.data?.data || []
-        const found = list.find((w) => w.id === resolvedParams.id) || null
-        setWarehouse(found)
+        warehouseFromApi = (wJson?.data as any) || null
+        setWarehouse(warehouseFromApi)
       }
+
       if (sRes.ok) {
         const sJson = await sRes.json()
-        setStocks((sJson?.data?.data || []) as StockItem[])
+        stocksFromApi = ((sJson?.data?.data) || []) as StockItem[]
+      }
+
+      if (stocksFromApi.length > 0) {
+        setStocks(stocksFromApi)
+      } else if (Array.isArray(warehouseFromApi?.stocks) && (warehouseFromApi!.stocks as any[]).length > 0) {
+        setStocks((warehouseFromApi!.stocks as any[]) as StockItem[])
+      } else {
+        setStocks([])
       }
     } catch {
     } finally {

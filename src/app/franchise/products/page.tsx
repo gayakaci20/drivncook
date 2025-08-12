@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Package, Search, ShoppingCart, Eye } from 'lucide-react'
+import { Package, Search, ShoppingCart, Eye, Filter, Apple, Utensils, Coffee, Box } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 
 interface Product {
   id: string
@@ -13,6 +15,7 @@ interface Product {
   sku: string
   unitPrice: number
   unit: string
+  imageUrl?: string | null
   category: {
     name: string
   }
@@ -29,15 +32,22 @@ export default function FranchiseProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const router = useRouter()
   useEffect(() => {
     fetchProducts()
   }, [])
 
   const fetchProducts = async () => {
     try {
-       
-      setProducts([])
+      const res = await fetch(`/api/products?limit=1000&sortBy=name&sortOrder=asc`)
+      if (!res.ok) {
+        setProducts([])
+        return
+      }
+      const json = await res.json()
+      const items = (json?.data?.data || []) as Product[]
+      setProducts(items)
     } catch (error) {
       console.error('Erreur lors du chargement des produits:', error)
     } finally {
@@ -86,15 +96,50 @@ export default function FranchiseProductsPage() {
       {/* Recherche */}
       <Card>
         <CardContent className="p-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un produit..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 h-10 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
-            />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative md:flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Rechercher un produit..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 h-10 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
+              />
+            </div>
+            <div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-10 rounded-xl">
+                    <Filter className="h-4 w-4" />
+                    {categoryFilter ? categoryFilter : 'Toutes les catégories'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setCategoryFilter('')}>
+                    <Filter className="h-4 w-4" />
+                    Toutes les catégories
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Ingrédients frais')}>
+                    <Apple className="h-4 w-4 text-green-600" />
+                    Ingrédients frais
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Plats préparés')}>
+                    <Utensils className="h-4 w-4 text-orange-600" />
+                    Plats préparés
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Boissons')}>
+                    <Coffee className="h-4 w-4 text-blue-600" />
+                    Boissons
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategoryFilter('Conditionnement')}>
+                    <Box className="h-4 w-4 text-purple-600" />
+                    Conditionnement
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -114,7 +159,19 @@ export default function FranchiseProductsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => {
+          {products
+            .filter(p => !categoryFilter || p.category?.name === categoryFilter)
+            .filter(p => {
+              if (!search.trim()) return true
+              const q = search.toLowerCase()
+              return (
+                p.name.toLowerCase().includes(q) ||
+                p.sku.toLowerCase().includes(q) ||
+                (p.description || '').toLowerCase().includes(q) ||
+                p.category.name.toLowerCase().includes(q)
+              )
+            })
+            .map((product) => {
             const availableStock = getAvailableStock(product)
             const stockStatus = getStockStatus(availableStock)
 
@@ -135,6 +192,12 @@ export default function FranchiseProductsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {product.imageUrl && (
+                      <div className="relative w-full h-40 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full" />
+                      </div>
+                    )}
                     {product.description && (
                       <p className="text-sm text-gray-600 dark:text-neutral-400">
                         {product.description}
@@ -180,7 +243,7 @@ export default function FranchiseProductsPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => router.push(`/franchise/products/${product.id}`)}>
                         <Eye className="h-4 w-4 mr-2" />
                         Détails
                       </Button>
@@ -188,6 +251,7 @@ export default function FranchiseProductsPage() {
                         size="sm" 
                         className="flex-1"
                         disabled={availableStock === 0}
+                        onClick={() => router.push(`/franchise/products/${product.id}/order`)}
                       >
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         Commander
@@ -197,7 +261,7 @@ export default function FranchiseProductsPage() {
                 </CardContent>
               </Card>
             )
-          })}
+            })}
         </div>
       )}
     </div>

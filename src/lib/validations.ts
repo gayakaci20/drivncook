@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { FranchiseStatus, VehicleStatus, OrderStatus, PaymentStatus, MaintenanceType, MaintenanceStatus } from '@/types/auth'
+import { FranchiseStatus, VehicleStatus, PaymentStatus, MaintenanceType, MaintenanceStatus } from '@/types/auth'
+import { OrderStatus as DbOrderStatus } from '@/types/prisma-enums'
 
  
 export const loginSchema = z.object({
@@ -110,17 +111,24 @@ export const warehouseSchema = z.object({
 
  
 export const orderSchema = z.object({
-  franchiseId: z.string().min(1, 'Le franchisé est requis'),
+  franchiseId: z.string().min(1, 'Le franchisé est requis').optional(),
   requestedDeliveryDate: z.string().optional(),
   notes: z.string().optional(),
   isFromDrivnCook: z.boolean().default(true)
 })
 
 export const orderItemSchema = z.object({
+  orderId: z.string().min(1, 'La commande est requise'),
   productId: z.string().min(1, 'Le produit est requis'),
   warehouseId: z.string().min(1, 'L\'entrepôt est requis'),
   quantity: z.coerce.number().min(1, 'La quantité doit être positive'),
   unitPrice: z.coerce.number().min(0, 'Le prix doit être positif'),
+  notes: z.string().optional()
+})
+
+export const orderUpdateSchema = z.object({
+  status: z.nativeEnum(DbOrderStatus).optional(),
+  requestedDeliveryDate: z.string().optional(),
   notes: z.string().optional()
 })
 

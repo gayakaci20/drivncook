@@ -53,7 +53,7 @@ export default function FranchiseLayout({
 
   return (
     <div className="relative flex h-screen bg-gray-50 dark:bg-neutral-950">
-      {/* background aesthetics */}
+      {/* background */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="h-full w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-gray-50 to-transparent dark:from-blue-950/20 dark:via-neutral-900 dark:to-neutral-950" />
       </div>

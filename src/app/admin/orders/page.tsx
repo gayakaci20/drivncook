@@ -287,11 +287,15 @@ export default function AdminOrdersPage() {
                   <div className="flex items-center space-x-3">
                     {getStatusBadge(order.status)}
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm"
+                        onClick={() => router.push(`/admin/orders/${order.id}`)}
+                      >
                         <Eye className="h-4 w-4 mr-2" />
                         Voir
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm"
+                        onClick={() => router.push(`/admin/orders/${order.id}/edit`)}
+                      >
                         <Edit className="h-4 w-4 mr-2" />
                         Modifier
                       </Button>

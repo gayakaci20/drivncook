@@ -66,7 +66,6 @@ const navigation: NavItem[] = [
       { title: 'Liste des entrepôts', href: '/admin/warehouses', icon: Building2 },
       { title: 'Stocks', href: '/admin/inventory', icon: Package },
       { title: 'Commandes', href: '/admin/orders', icon: ShoppingCart },
-      { title: 'Produits', href: '/admin/products', icon: Package }
     ]
   },
   {
