@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "cross-env DATABASE_URL='file:./dev.db' next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:seed": "cross-env DATABASE_URL='file:./dev.db' tsx prisma/seed.ts",
     "db:reset": "cross-env DATABASE_URL='file:./dev.db' npx prisma migrate reset --force",
     "db:studio": "cross-env DATABASE_URL='file:./dev.db' npx prisma studio",
-    "db:generate": "cross-env DATABASE_URL='file:./dev.db' npx prisma generate"
+    "db:generate": "cross-env DATABASE_URL='file:./dev.db' npx prisma generate",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -58,7 +59,7 @@
     "nextjs-toploader": "^3.8.16",
     "nodemailer": "^7.0.5",
     "preline": "^3.1.0",
-    "prisma": "^6.13.0",
+    "prisma": "^6.14.0",
     "puppeteer": "^24.15.0",
     "radix-ui": "^1.4.2",
     "react": "19.1.0",
