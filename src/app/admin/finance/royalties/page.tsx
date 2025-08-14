@@ -9,6 +9,7 @@ import { TrendingUp, FileText, CreditCard, Calendar, Search, Filter } from 'luci
 import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 interface RoyaltyReport {
   franchiseId: string
@@ -98,14 +99,14 @@ export default function RoyaltiesPage() {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        alert(err?.error || 'Erreur lors de la création de la facture')
+        toast.error(err?.error || 'Erreur lors de la création de la facture')
       } else {
-        alert('Facture générée')
+        toast.success('Facture générée')
         load()
       }
     } catch (e) {
       console.error(e)
-      alert('Erreur lors de la création de la facture')
+      toast.error('Erreur lors de la création de la facture')
     }
   }
 

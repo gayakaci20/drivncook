@@ -14,7 +14,7 @@ import {
   NotificationCreateRequest,
   NotificationUpdateRequest
 } from '@/types/notifications'
-import { notificationEmailService } from '@/lib/notification-email-service'
+import { notificationEmailService } from '@/lib/notification-service'
 
 function getMockFranchiseNotifications(franchiseId: string): NotificationData[] {
   return [
@@ -166,7 +166,43 @@ export async function GET(request: NextRequest) {
       filters.endDate = new Date(searchParams.get('endDate')!)
     }
 
-    let notifications = getMockFranchiseNotifications(user.franchiseId)
+    let notifications: NotificationData[] = []
+
+    try {
+      const dbNotifications = await prisma.notification.findMany({
+        where: {
+          OR: [
+            { targetRole: 'FRANCHISEE' },
+            { targetUserId: session.user.id },
+            { franchiseId: user.franchiseId || undefined }
+          ]
+        },
+        orderBy: { createdAt: 'desc' },
+        take: filters.limit || 20,
+        skip: filters.offset || 0
+      })
+
+      notifications = dbNotifications.map(n => ({
+        id: n.id,
+        type: n.type as NotificationType,
+        priority: n.priority as NotificationPriority,
+        status: n.status as NotificationStatus,
+        title: n.title,
+        message: n.message,
+        data: n.data as any,
+        createdAt: n.createdAt,
+        readAt: n.readAt || undefined,
+        targetUserId: n.targetUserId || undefined,
+        targetRole: n.targetRole as 'ADMIN' | 'FRANCHISEE',
+        franchiseId: n.franchiseId || undefined,
+        relatedEntityId: n.relatedEntityId || undefined,
+        relatedEntityType: n.relatedEntityType || undefined,
+        actionUrl: n.actionUrl || undefined,
+        expiresAt: n.expiresAt || undefined
+      }))
+    } catch (error) {
+      console.error('Erreur lors de la récupération des notifications franchise:', error)
+    }
 
     if (filters.type && filters.type.length > 0) {
       notifications = notifications.filter(n => filters.type!.includes(n.type))
@@ -244,22 +280,41 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    const createdNotification = await prisma.notification.create({
+      data: {
+        type: body.type,
+        priority: body.priority || NotificationPriority.MEDIUM,
+        status: NotificationStatus.UNREAD,
+        title: body.title,
+        message: body.message,
+        data: body.data ? JSON.stringify(body.data) : null,
+        targetUserId: body.targetUserId,
+        targetRole: 'FRANCHISEE',
+        franchiseId: body.franchiseId,
+        relatedEntityId: body.relatedEntityId,
+        relatedEntityType: body.relatedEntityType,
+        actionUrl: body.actionUrl,
+        expiresAt: body.expiresAt
+      }
+    })
+
     const newNotification: NotificationData = {
-      id: `notification-${Date.now()}`,
-      type: body.type,
-      priority: body.priority || NotificationPriority.MEDIUM,
-      status: NotificationStatus.UNREAD,
-      title: body.title,
-      message: body.message,
-      data: body.data,
-      createdAt: new Date(),
-      targetUserId: body.targetUserId,
-      targetRole: 'FRANCHISEE',
-      franchiseId: body.franchiseId,
-      relatedEntityId: body.relatedEntityId,
-      relatedEntityType: body.relatedEntityType,
-      actionUrl: body.actionUrl,
-      expiresAt: body.expiresAt
+      id: createdNotification.id,
+      type: createdNotification.type as NotificationType,
+      priority: createdNotification.priority as NotificationPriority,
+      status: createdNotification.status as NotificationStatus,
+      title: createdNotification.title,
+      message: createdNotification.message,
+      data: createdNotification.data ? JSON.parse(createdNotification.data) : undefined,
+      createdAt: createdNotification.createdAt,
+      readAt: createdNotification.readAt || undefined,
+      targetUserId: createdNotification.targetUserId || undefined,
+      targetRole: createdNotification.targetRole as 'ADMIN' | 'FRANCHISEE',
+      franchiseId: createdNotification.franchiseId || undefined,
+      relatedEntityId: createdNotification.relatedEntityId || undefined,
+      relatedEntityType: createdNotification.relatedEntityType || undefined,
+      actionUrl: createdNotification.actionUrl || undefined,
+      expiresAt: createdNotification.expiresAt || undefined
     }
 
     try {
@@ -271,9 +326,10 @@ export async function POST(request: NextRequest) {
         franchiseId: body.franchiseId
       } : undefined
 
-      notificationEmailService.sendNotificationEmail(
+      notificationEmailService.sendSimpleNotificationEmailFor(
         newNotification,
-        userEmailInfo
+        userEmailInfo,
+        { sendEmail: true }
       ).catch(error => {
         console.error('Erreur envoi email notification franchise:', error)
       })
@@ -323,10 +379,26 @@ export async function PATCH(request: NextRequest) {
 
     const body: NotificationUpdateRequest = await request.json()
 
+    const updateData: any = {}
+    if (body.status) updateData.status = body.status
+    if (body.readAt) updateData.readAt = body.readAt
+
+    const result = await prisma.notification.updateMany({
+      where: {
+        id: { in: notificationIds },
+        OR: [
+          { targetRole: 'FRANCHISEE' },
+          { targetUserId: session.user.id },
+          { franchiseId: user.franchiseId || undefined }
+        ]
+      },
+      data: updateData
+    })
+
     return NextResponse.json({
       success: true,
       data: {
-        updatedCount: notificationIds.length,
+        updatedCount: result.count,
         updatedIds: notificationIds
       }
     })

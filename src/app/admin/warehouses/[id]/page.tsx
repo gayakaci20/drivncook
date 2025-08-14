@@ -312,15 +312,15 @@ export default function WarehouseDetailPage({ params }: PageProps) {
                     <div className="mt-3 space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Total</span>
-                        <span className="font-medium">{s.quantity} {s.product.unit}</span>
+                        <span className="font-medium">{s.quantity}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Réservé</span>
-                        <span className="text-orange-600">{s.reservedQty} {s.product.unit}</span>
+                        <span className="text-orange-600">{s.reservedQty}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Disponible</span>
-                        <span className="font-medium text-green-600">{available} {s.product.unit}</span>
+                        <span className="font-medium text-green-600">{available}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Dernier réassort</span>

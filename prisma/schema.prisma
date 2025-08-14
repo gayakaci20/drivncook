@@ -33,6 +33,7 @@ enum VehicleStatus {
 
 enum OrderStatus {
   DRAFT
+  PAID
   PENDING
   CONFIRMED
   IN_PREPARATION
@@ -64,6 +65,42 @@ enum MaintenanceStatus {
 enum PurchaseType {
   PURCHASE
   RETURN
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  ORDER_OVERDUE
+  VEHICLE_MAINTENANCE_DUE
+  VEHICLE_INSPECTION_DUE
+  VEHICLE_ASSIGNED
+  VEHICLE_BREAKDOWN
+  INVOICE_GENERATED
+  INVOICE_OVERDUE
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  FRANCHISE_APPROVED
+  STOCK_LOW
+  SALES_TARGET_ACHIEVED
+  SALES_TARGET_MISSED
+  USER_REGISTERED
+  DOCUMENT_TRANSMITTED
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
 }
 
 // Modèles
@@ -280,17 +317,18 @@ model Maintenance {
 }
 
 model Order {
-  id                    String      @id @default(cuid())
-  orderNumber           String      @unique
-  status                OrderStatus @default(DRAFT)
-  orderDate             DateTime    @default(now())
-  requestedDeliveryDate DateTime?
-  actualDeliveryDate    DateTime?
-  totalAmount           Decimal     @default(0)
-  notes                 String?
-  isFromDrivnCook       Boolean     @default(true) // true = 80%, false = 20%
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  id                        String      @id @default(cuid())
+  orderNumber               String      @unique
+  status                    OrderStatus @default(DRAFT)
+  orderDate                 DateTime    @default(now())
+  requestedDeliveryDate     DateTime?
+  actualDeliveryDate        DateTime?
+  totalAmount               Decimal     @default(0)
+  notes                     String?
+  isFromDrivnCook           Boolean     @default(true) // true = 80%, false = 20%
+  transmittedAttachmentUrls String?     // JSON array of attachment URLs
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
 
   // Relations
   franchiseId String
@@ -465,4 +503,25 @@ model Verification {
   updatedAt  DateTime?
 
   @@map("verification")
+}
+
+model Notification {
+  id                 String             @id @default(cuid())
+  type               NotificationType
+  priority           NotificationPriority @default(MEDIUM)
+  status             NotificationStatus   @default(UNREAD)
+  title              String
+  message            String
+  data               String? // JSON data
+  createdAt          DateTime             @default(now())
+  readAt             DateTime?
+  targetUserId       String?
+  targetRole         String? // ADMIN or FRANCHISEE
+  franchiseId        String?
+  relatedEntityId    String?
+  relatedEntityType  String?
+  actionUrl          String?
+  expiresAt          DateTime?
+
+  @@map("notifications")
 }

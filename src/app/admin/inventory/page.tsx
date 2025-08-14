@@ -508,7 +508,7 @@ export default function AdminInventoryPage() {
                           <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                             <span>SKU: {product.sku}</span>
                             <span>Catégorie: {product.category.name}</span>
-                            <span>{formatCurrency(product.unitPrice)} / {product.unit}</span>
+                            <span>{formatCurrency(product.unitPrice)}</span>
                           </div>
                           
                           {product.description && (
@@ -523,16 +523,16 @@ export default function AdminInventoryPage() {
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-sm">
                                     <span>Total:</span>
-                                    <span className="font-medium">{stock.quantity} {product.unit}</span>
+                                    <span className="font-medium">{stock.quantity}</span>
                                   </div>
                                   <div className="flex justify-between text-sm">
                                     <span>Réservé:</span>
-                                    <span className="text-orange-600">{stock.reservedQty} {product.unit}</span>
+                                    <span className="text-orange-600">{stock.reservedQty}</span>
                                   </div>
                                   <div className="flex justify-between text-sm">
                                     <span>Disponible:</span>
                                     <span className="font-medium text-green-600">
-                                      {stock.quantity - stock.reservedQty} {product.unit}
+                                      {stock.quantity - stock.reservedQty}
                                     </span>
                                   </div>
                                   {getStockStatusBadge(stock.quantity - stock.reservedQty, product.minStock, product.maxStock)}
@@ -544,7 +544,7 @@ export default function AdminInventoryPage() {
                       </div>
                       
                       <div className="text-right space-y-2">
-                        <div className="text-lg font-semibold">{availableStock} {product.unit}</div>
+                        <div className="text-lg font-semibold">{availableStock}</div>
                         <div className="text-sm text-gray-500">disponible</div>
                         <div className="flex items-center gap-1">
                           <Button

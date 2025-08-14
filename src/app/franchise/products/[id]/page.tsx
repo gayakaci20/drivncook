@@ -97,7 +97,7 @@ export default function FranchiseProductDetailPage({ params }: PageProps) {
             </div>
             <div>
               <div className="text-sm text-gray-500">Prix</div>
-              <div className="font-medium">{product.unitPrice} € / {product.unit}</div>
+              <div className="font-medium">{product.unitPrice} €</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Catégorie</div>
@@ -107,7 +107,7 @@ export default function FranchiseProductDetailPage({ params }: PageProps) {
 
           <div>
             <div className="text-sm text-gray-500 mb-1">Stock total disponible</div>
-            <div className="font-semibold">{totalStock} {product.unit}</div>
+            <div className="font-semibold">{totalStock}</div>
           </div>
 
           <div className="border-t pt-4">
@@ -116,7 +116,7 @@ export default function FranchiseProductDetailPage({ params }: PageProps) {
               {product.stocks.map((s, i) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-neutral-400">{s.warehouse.name} ({s.warehouse.city})</span>
-                  <span className="font-medium">{s.quantity} {product.unit}</span>
+                  <span className="font-medium">{s.quantity}</span>
                 </div>
               ))}
             </div>

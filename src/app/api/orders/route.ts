@@ -12,6 +12,8 @@ import {
 import { orderSchema } from '@/lib/validations'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { notificationEmailService } from '@/lib/notification-service'
+import { NotificationType, NotificationPriority } from '@/types/notifications'
 
  
 export const GET = withAuth(
@@ -170,6 +172,36 @@ export const POST = withAuth(
           userId: (session.user as ExtendedUser).id
         }
       })
+
+      try {
+        const notifData = {
+          type: NotificationType.ORDER_CREATED,
+          priority: NotificationPriority.MEDIUM,
+          title: 'Nouvelle commande créée',
+          message: `Commande ${order.orderNumber} créée`,
+          data: { orderNumber: order.orderNumber },
+          relatedEntityId: order.id,
+          relatedEntityType: 'order',
+          franchiseId: order.franchiseId,
+          actionUrl: `/admin/orders/${order.id}`
+        } as const
+
+        await notificationEmailService.createNotificationWithEmail(
+          { ...notifData, targetRole: 'ADMIN' }
+        )
+
+        await notificationEmailService.createNotificationWithEmail(
+          { 
+            ...notifData, 
+            title: 'Votre commande a été créée', 
+            message: `Votre commande ${order.orderNumber} a été enregistrée`, 
+            targetRole: 'FRANCHISEE',
+            actionUrl: `/franchise/orders/${order.id}`
+          }
+        )
+      } catch (e) {
+        console.error('Erreur notification ORDER_CREATED:', e)
+      }
 
       return createSuccessResponse(order, 'Commande créée avec succès')
     })

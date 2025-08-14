@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils'
-import { notificationEmailService } from '@/lib/notification-email-service'
+import { notificationEmailService } from '@/lib/notification-service'
 import { NotificationType, NotificationPriority } from '@/types/notifications'
 
 const requestDocumentsSchema = z.object({
@@ -12,7 +12,7 @@ const requestDocumentsSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     const body = await request.json()
@@ -26,6 +26,7 @@ export async function POST(
     }
 
     const { missingDocuments, customMessage } = validationResult.data
+    const { params } = await Promise.resolve(context)
     const franchiseId = params.id
 
     // Récupérer les informations de la franchise

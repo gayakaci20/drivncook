@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -77,6 +78,7 @@ export default function RootLayout({
             <main>
               {children}
             </main>
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

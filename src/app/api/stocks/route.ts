@@ -9,6 +9,8 @@ import {
   createPaginationResponse
 } from '@/lib/api-utils'
 import { ExtendedUser } from '@/types/auth'
+import { notificationEmailService } from '@/lib/notification-service'
+import { NotificationType, NotificationPriority } from '@/types/notifications'
 import { UserRole } from '@/types/prisma-enums'
 
  
@@ -213,6 +215,29 @@ export const POST = withAuth(
         userId: (session.user as ExtendedUser).id
       }
     })
+
+    try {
+      if ((session.user as ExtendedUser).role === UserRole.ADMIN && (operation === 'ADD' || operation === 'SET')) {
+        const notif = {
+          type: NotificationType.STOCK_RECEIVED,
+          priority: NotificationPriority.MEDIUM,
+          title: 'Stock mis à jour',
+          message: `Stock mis à jour pour ${stock.product.name} (${newQuantity}) à ${stock.warehouse.name}`,
+          data: { productName: stock.product.name },
+          relatedEntityId: stock.id,
+          relatedEntityType: 'stock',
+          actionUrl: '/admin/inventory'
+        } as const
+
+        await notificationEmailService.createNotificationWithEmail(
+          { ...notif, targetRole: 'ADMIN' },
+          undefined,
+          { sendEmail: true, includeDefaultRecipients: true }
+        )
+      }
+    } catch (e) {
+      console.error('Erreur notification STOCK_RECEIVED:', e)
+    }
 
     return createSuccessResponse(stock, `Stock ${operation === 'ADD' ? 'ajouté' : operation === 'REMOVE' ? 'retiré' : 'mis à jour'} avec succès`)
   }),

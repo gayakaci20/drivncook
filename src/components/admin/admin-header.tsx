@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useState } from 'react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { Button } from '@/components/ui/button'
@@ -22,15 +23,55 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/components/providers/theme-provider'
 import { useRouter } from 'next/navigation'
+import { NotificationAPI } from '@/lib/notification-client'
+import { useNotifications } from '@/hooks/use-notifications'
+import type { NotificationItem as UINotificationItem } from '@/components/ui/notification'
 
 export function AdminHeader() {
   const router = useRouter()
   const { data: session } = useSession()
   const { isDarkMode, toggleDarkMode } = useTheme()
+  const notificationsHook = useNotifications('ADMIN', 20)
+  const [idMap, setIdMap] = useState<Record<number, { id: string; url?: string }>>({})
 
   const handleSignOut = async () => {
     await signOut()
     window.location.href = '/login'
+  }
+
+  const loadNotifications = async () => {
+    try {
+      await notificationsHook.load()
+      const res = await NotificationAPI.getAdminNotifications({ limit: 20 })
+      if (res.success && res.data) {
+        const map: Record<number, { id: string; url?: string }> = {}
+        res.data.notifications.forEach((n) => {
+          const numId = parseInt(n.id.replace(/\D/g, '') || '0', 10)
+          map[numId] = { id: n.id, url: n.actionUrl || undefined }
+        })
+        setIdMap(map)
+      }
+    } catch {}
+  }
+
+  React.useEffect(() => {
+    loadNotifications()
+    const i = setInterval(loadNotifications, 15000)
+    return () => clearInterval(i)
+  }, [])
+
+  const onNotificationClick = async (id: number) => {
+    const original = idMap[id]
+    if (original?.id) {
+      await notificationsHook.markAsRead([original.id])
+    }
+    if (original?.url) {
+      router.push(original.url)
+    }
+  }
+
+  const onMarkAllAsRead = async () => {
+    await notificationsHook.markAllAsRead()
   }
 
   return (
@@ -70,6 +111,9 @@ export function AdminHeader() {
             className="rounded-xl hover:translate-y-[1px] transition-transform"
             buttonVariant="ghost"
             buttonSize="icon"
+            notifications={NotificationAPI.convertToComponentFormat(notificationsHook.notifications)}
+            onNotificationClick={onNotificationClick}
+            onMarkAllAsRead={onMarkAllAsRead}            
           />
 
           {/* User menu */}

@@ -8,6 +8,7 @@ import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 import { ArrowLeft, AlertTriangle, ShoppingCart } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -86,7 +87,7 @@ export default function FranchiseOrderForProductPage({ params }: PageProps) {
 
   const selectedStock = useMemo(() => stocks.find((s) => s.warehouseId === warehouseId) || null, [stocks, warehouseId])
   const available = selectedStock ? Math.max(0, selectedStock.quantity - (selectedStock.reservedQty || 0)) : 0
-  const unitLabel = product?.unit || 'unités'
+  const unitLabel = ''
   const unitPrice = product?.unitPrice || 0
   const total = unitPrice * (quantity || 0)
 
@@ -108,14 +109,14 @@ export default function FranchiseOrderForProductPage({ params }: PageProps) {
       })
       if (!orderRes.ok) {
         const err = await orderRes.json().catch(() => ({}))
-        alert(err?.error || 'Erreur lors de la création de la commande')
+        toast.error(err?.error || 'Erreur lors de la création de la commande')
         return
       }
       const orderJson = await orderRes.json()
       const orderData = orderJson?.data ?? orderJson
       const orderId = orderData?.id as string | undefined
       if (!orderId || typeof orderId !== 'string') {
-        alert('Erreur: ID de commande manquant')
+        toast.error('Erreur: ID de commande manquant')
         return
       }
 
@@ -133,13 +134,13 @@ export default function FranchiseOrderForProductPage({ params }: PageProps) {
       })
       if (!itemRes.ok) {
         const err = await itemRes.json().catch(() => ({}))
-        alert(err?.error || 'Erreur lors de l\'ajout de l\'article')
+        toast.error(err?.error || 'Erreur lors de l\'ajout de l\'article')
         return
       }
 
       router.push('/franchise/orders')
     } catch (e) {
-      alert('Erreur inattendue')
+      toast.error('Erreur inattendue')
     } finally {
       setSaving(false)
     }
@@ -188,7 +189,7 @@ export default function FranchiseOrderForProductPage({ params }: PageProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Produit</label>
                 <input value={`${product.name} — ${product.sku}`} disabled className="w-full px-3 py-2 border border-gray-300 rounded-xl" />
-                <div className="mt-2 text-xs text-gray-600">Prix: <span className="font-medium">{unitPrice} € / {unitLabel}</span></div>
+                <div className="mt-2 text-xs text-gray-600">Prix: <span className="font-medium">{unitPrice} €</span></div>
               </div>
 
               <div>
@@ -211,14 +212,14 @@ export default function FranchiseOrderForProductPage({ params }: PageProps) {
                     const avail = Math.max(0, s.quantity - (s.reservedQty || 0))
                     return (
                       <option key={s.warehouseId} value={s.warehouseId}>
-                        {s.warehouse.name} ({s.warehouse.city}) — dispo: {avail} {unitLabel}
+                         {s.warehouse.name} ({s.warehouse.city}) — dispo: {avail}
                       </option>
                     )
                   })}
                 </select>
                 {selectedStock && (
                   <div className="mt-2 text-xs text-gray-600">
-                    Stock: <span className="font-medium">{selectedStock.quantity} {unitLabel}</span> • Réservé: <span className="font-medium text-orange-600">{selectedStock.reservedQty} {unitLabel}</span> • Disponible: <span className="font-medium text-green-600">{available} {unitLabel}</span>
+                    Stock: <span className="font-medium">{selectedStock.quantity}</span> • Réservé: <span className="font-medium text-orange-600">{selectedStock.reservedQty}</span> • Disponible: <span className="font-medium text-green-600">{available}</span>
                   </div>
                 )}
                 {selectedStock && available === 0 && (
@@ -257,7 +258,7 @@ export default function FranchiseOrderForProductPage({ params }: PageProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Date de livraison souhaitée</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Date de récupération souhaitée</label>
                 <input
                   type="date"
                   value={requestedDate}

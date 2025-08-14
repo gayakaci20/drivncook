@@ -21,6 +21,7 @@ export enum VehicleStatus {
 
 export enum OrderStatus {
   DRAFT = 'DRAFT',
+  PAID = 'PAID',
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',
   IN_PREPARATION = 'IN_PREPARATION',

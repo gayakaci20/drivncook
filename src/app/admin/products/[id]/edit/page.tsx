@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { productSchema, type ProductFormData } from "@/lib/validations"
 import { ArrowLeft } from "lucide-react"
 import { useRef } from "react"
+import { toast } from 'sonner'
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -78,7 +79,7 @@ export default function EditAdminProductPage({ params }: PageProps) {
         router.push(`/admin/products/${resolved.id}`)
       }
       else {
-        const err = await res.json(); alert(err?.error || 'Erreur lors de la mise à jour')
+        const err = await res.json(); toast.error(err?.error || 'Erreur lors de la mise à jour')
       }
     } finally { setSaving(false) }
   }

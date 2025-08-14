@@ -11,6 +11,7 @@ import { UserRole } from '@/types/prisma-enums'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { franchiseSchema, type FranchiseFormData } from '@/lib/validations'
+import { toast } from 'sonner'
 
 interface FranchiseSummary {
   id: string
@@ -93,10 +94,10 @@ export default function EditFranchisePage({ params }: PageProps) {
         router.push(`/admin/franchises/${resolvedParams.id}`)
       } else {
         const err = await res.json()
-        alert(err?.error || 'Erreur lors de la mise à jour')
+        toast.error(err?.error || 'Erreur lors de la mise à jour')
       }
     } catch {
-      alert('Erreur lors de la mise à jour')
+      toast.error('Erreur lors de la mise à jour')
     }
   }
 

@@ -8,6 +8,7 @@ import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole, OrderStatus } from '@/types/prisma-enums'
 import { ArrowLeft, Save } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -73,7 +74,7 @@ export default function AdminOrderEditPage({ params }: PageProps) {
         router.push(`/admin/orders/${resolved.id}`)
       } else {
         const err = await res.json().catch(() => ({}))
-        alert(err?.error || 'Erreur lors de la mise à jour')
+        toast.error(err?.error || 'Erreur lors de la mise à jour')
       }
     } finally {
       setSaving(false)

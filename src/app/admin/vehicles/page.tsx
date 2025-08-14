@@ -38,6 +38,7 @@ import {
   X
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
 
 interface Vehicle {
   id: string
@@ -123,11 +124,11 @@ export default function AdminVehiclesPage() {
         await fetchVehicles()
       } else {
         const errorData = await response.json()
-        alert(`Erreur : ${errorData.error}`)
+        toast.error(`Erreur : ${errorData.error}`)
       }
     } catch (error) {
       console.error('Erreur lors de la suppression:', error)
-      alert('Erreur lors de la suppression')
+      toast.error('Erreur lors de la suppression')
     }
   }
 

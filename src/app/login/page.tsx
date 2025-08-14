@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { Poppins } from 'next/font/google'
 import { useDarkMode } from '@/hooks/use-dark-mode'
 import { ExtendedUser } from '@/types/auth'
+import { toast } from 'sonner'
   
 const poppins = Poppins({
   subsets: ['latin'],
@@ -20,7 +21,6 @@ const poppins = Poppins({
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string>('')
   const router = useRouter()
   const { isDarkMode } = useDarkMode()
   const {
@@ -33,7 +33,6 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
-    setError('')
 
     try {
       console.log('Tentative de connexion avec:', { email: data.email })
@@ -47,15 +46,14 @@ export default function LoginPage() {
       console.log('Résultat de connexion:', result)
 
       if (result.error) {
-        console.error('Erreur de connexion:', result.error)
         if (result.error.message?.includes('Invalid credentials')) {
-          setError('Email ou mot de passe incorrect')
+          toast.error('Email ou mot de passe incorrect')
         } else if (result.error.message?.includes('User not found')) {
-          setError('Aucun compte trouvé avec cette adresse email')
+          toast.error('Aucun compte trouvé avec cette adresse email')
         } else if (result.error.message?.includes('Account disabled')) {
-          setError('Compte désactivé. Veuillez contacter l\'administrateur.')
+          toast.error('Compte désactivé. Veuillez contacter l\'administrateur.')
         } else {
-          setError('Email ou mot de passe incorrect')
+          toast.error('Email ou mot de passe incorrect')
         }
         return
       }
@@ -72,11 +70,11 @@ export default function LoginPage() {
           router.push('/')
         }
       } else {
-        setError('Erreur lors de la récupération des informations utilisateur')
+        toast.error('Erreur lors de la récupération des informations utilisateur')
       }
     } catch (error) {
       console.error('Erreur de connexion:', error)
-      setError('Une erreur est survenue lors de la connexion')
+      toast.error('Une erreur est survenue lors de la connexion')
     } finally {
       setIsLoading(false)
     }
@@ -122,11 +120,6 @@ export default function LoginPage() {
                   </div>
                   {/* Form */}
                   <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    {error && (
-                      <div className="rounded-xl bg-red-50 border border-red-200 p-4 dark:bg-red-900/20 dark:border-red-800">
-                        <div className="text-sm text-red-800 dark:text-red-200">{error}</div>
-                      </div>
-                    )}
                     
                     <div className="space-y-6">
                       {/* Email Field */}

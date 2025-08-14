@@ -76,6 +76,12 @@ const navigation: NavItem[] = [
     description: 'Factures et paiements'
   },
   {
+    title: 'Notifications',
+    href: '/franchise/notifications',
+    icon: MessageSquare,
+    description: 'Alertes et messages'
+  },
+  {
     title: 'Localisation',
     href: '/franchise/location',
     icon: MapPin,

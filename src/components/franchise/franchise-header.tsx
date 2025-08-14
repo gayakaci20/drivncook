@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,15 +22,55 @@ import {
   Sun
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { NotificationAPI } from '@/lib/notification-client'
+import { useNotifications } from '@/hooks/use-notifications'
+import type { NotificationItem as UINotificationItem } from '@/components/ui/notification'
 
 export function FranchiseHeader() {
   const router = useRouter()
   const { data: session } = useSession()
   const { isDarkMode, toggleDarkMode } = useTheme()
+  const notificationsHook = useNotifications('FRANCHISEE', 20)
+  const [idMap, setIdMap] = useState<Record<number, { id: string; url?: string }>>({})
 
   const handleSignOut = async () => { 
     await signOut()
     window.location.href = '/login'
+  }
+
+  const loadNotifications = async () => {
+    try {
+      await notificationsHook.load()
+      const res = await NotificationAPI.getFranchiseNotifications({ limit: 20 })
+      if (res.success && res.data) {
+        const map: Record<number, { id: string; url?: string }> = {}
+        res.data.notifications.forEach((n) => {
+          const numId = parseInt(n.id.replace(/\D/g, '') || '0', 10)
+          map[numId] = { id: n.id, url: n.actionUrl || undefined }
+        })
+        setIdMap(map)
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    loadNotifications()
+    const i = setInterval(loadNotifications, 15000)
+    return () => clearInterval(i)
+  }, [])
+
+  const onNotificationClick = async (id: number) => {
+    const original = idMap[id]
+    if (original?.id) {
+      await notificationsHook.markAsRead([original.id])
+    }
+    if (original?.url) {
+      router.push(original.url)
+    }
+  }
+
+  const onMarkAllAsRead = async () => {
+    await notificationsHook.markAllAsRead()
   }
 
 
@@ -75,6 +115,9 @@ export function FranchiseHeader() {
             className="rounded-xl hover:translate-y-[1px] transition-transform"
             buttonVariant="ghost"
             buttonSize="icon"
+            notifications={NotificationAPI.convertToComponentFormat(notificationsHook.notifications)}
+            onNotificationClick={onNotificationClick}
+            onMarkAllAsRead={onMarkAllAsRead}
           />
 
           {/* Actions rapides */}

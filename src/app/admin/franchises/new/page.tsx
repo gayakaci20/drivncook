@@ -24,6 +24,7 @@ import { z } from 'zod'
 import { ExtendedUser } from '@/types/auth'
 import { useSession } from '@/lib/auth-client'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 
 const createFranchiseSchema = z.object({
@@ -120,11 +121,11 @@ export default function NewFranchisePage() {
       } else {
         const errorData = await response.json()
         console.error('Erreur API:', errorData)
-        alert(`Erreur : ${errorData.error}`)
+        toast.error(`Erreur : ${errorData.error}`)
       }
     } catch (error) {
       console.error('Erreur lors de la création:', error)
-      alert('Erreur lors de la création du franchisé')
+      toast.error('Erreur lors de la création du franchisé')
     } finally {
       setSubmitting(false)
     }

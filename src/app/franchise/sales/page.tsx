@@ -206,59 +206,55 @@ export default function FranchiseSalesPage() {
 
       {/* Statistiques du mois */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">CA total</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatAmount(monthlyStats.totalSales)}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">CA total</CardTitle>
+            <div className="size-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <DollarSign className="h-4 w-4" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatAmount(monthlyStats.totalSales)}</div>
+            <p className="text-xs text-muted-foreground">Total du mois</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Transactions</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {monthlyStats.totalTransactions}
-                </p>
-              </div>
-              <BarChart3 className="h-8 w-8 text-blue-600" />
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+            <div className="size-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <BarChart3 className="h-4 w-4" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{monthlyStats.totalTransactions}</div>
+            <p className="text-xs text-muted-foreground">Total du mois</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Redevances</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {formatAmount(monthlyStats.totalRoyalties)}
-                </p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-orange-600" />
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Redevances</CardTitle>
+            <div className="size-7 rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatAmount(monthlyStats.totalRoyalties)}</div>
+            <p className="text-xs text-muted-foreground">Total du mois</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">Moy. quotidienne</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {formatAmount(monthlyStats.averageDaily)}
-                </p>
-              </div>
-              <Calendar className="h-8 w-8 text-purple-600" />
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Moy. quotidienne</CardTitle>
+            <div className="size-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <Calendar className="h-4 w-4" />
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatAmount(monthlyStats.averageDaily)}</div>
+            <p className="text-xs text-muted-foreground">Moyenne des jours saisis</p>
           </CardContent>
         </Card>
       </div>

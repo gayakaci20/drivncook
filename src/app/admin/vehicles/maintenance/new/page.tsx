@@ -11,6 +11,7 @@ import { maintenanceSchema, type MaintenanceFormData } from '@/lib/validations'
 import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 interface VehicleOption {
   id: string
@@ -83,10 +84,10 @@ export default function NewMaintenancePage() {
         router.push(vehicleId ? `/admin/vehicles/${vehicleId}` : '/admin/vehicles')
       } else {
         const err = await res.json()
-        alert(err?.error || 'Erreur lors de la création de la maintenance')
+        toast.error(err?.error || 'Erreur lors de la création de la maintenance')
       }
     } catch (e) {
-      alert('Erreur lors de la création de la maintenance')
+      toast.error('Erreur lors de la création de la maintenance')
     } finally {
       setLoading(false)
     }

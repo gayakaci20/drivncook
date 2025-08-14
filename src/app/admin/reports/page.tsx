@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
@@ -149,14 +150,14 @@ export default function AdminReportsPage() {
 
       if (response.ok) {
         await fetchReportsData()
-        alert('Rapport généré avec succès')
+        toast.success('Rapport généré avec succès')
       } else {
         const errorData = await response.json()
-        alert(`Erreur : ${errorData.error}`)
+        toast.error(`Erreur : ${errorData.error}`)
       }
     } catch (error) {
       console.error('Erreur lors de la génération:', error)
-      alert('Erreur lors de la génération du rapport')
+      toast.error('Erreur lors de la génération du rapport')
     } finally {
       setGeneratingReport(false)
     }
@@ -177,11 +178,11 @@ export default function AdminReportsPage() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       } else {
-        alert('Erreur lors du téléchargement')
+        toast.error('Erreur lors du téléchargement')
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error)
-      alert('Erreur lors du téléchargement')
+      toast.error('Erreur lors du téléchargement')
     }
   }
 

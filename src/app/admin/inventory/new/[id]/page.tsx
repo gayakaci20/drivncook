@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
@@ -85,10 +86,10 @@ export default function NewInventoryForProductPage({ params }: PageProps) {
         router.push('/admin/inventory')
       } else {
         const err = await res.json()
-        alert(err?.error || "Erreur lors de l'opération de stock")
+        toast.error(err?.error || "Erreur lors de l'opération de stock")
       }
     } catch (e) {
-      alert("Erreur lors de l'opération de stock")
+      toast.error("Erreur lors de l'opération de stock")
     } finally {
       setLoading(false)
     }

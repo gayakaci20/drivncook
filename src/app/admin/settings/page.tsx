@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 interface AppSettings {
   general: {
@@ -174,10 +175,10 @@ export default function AdminSettingsPage() {
        
       await new Promise(resolve => setTimeout(resolve, 1000))  
       setUnsavedChanges(false)
-      alert('Paramètres sauvegardés avec succès!')
+      toast.success('Paramètres sauvegardés avec succès!')
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error)
-      alert('Erreur lors de la sauvegarde des paramètres')
+      toast.error('Erreur lors de la sauvegarde des paramètres')
     } finally {
       setSaving(false)
     }

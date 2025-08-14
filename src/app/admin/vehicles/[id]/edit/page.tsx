@@ -8,6 +8,7 @@ import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
 import { ArrowLeft, Edit } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -71,7 +72,7 @@ export default function EditVehiclePage({ params }: PageProps) {
       router.push(`/admin/vehicles/${resolvedParams.id}`)
     } else {
       const err = await res.json()
-      alert(err?.error || 'Erreur lors de la mise à jour')
+      toast.error(err?.error || 'Erreur lors de la mise à jour')
     }
   }
 

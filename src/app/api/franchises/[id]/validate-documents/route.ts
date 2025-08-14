@@ -1,14 +1,15 @@
     import { NextRequest } from 'next/server'
     import { prisma } from '@/lib/prisma'
     import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils'
-    import { notificationEmailService } from '@/lib/notification-email-service'
+    import { notificationEmailService } from '@/lib/notification-service'
     import { NotificationType, NotificationPriority } from '@/types/notifications'
 
     export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: { id: string } }
     ) {
     try {
+        const { params } = await Promise.resolve(context)
         const franchiseId = params.id
 
         const franchise = await prisma.franchise.findUnique({

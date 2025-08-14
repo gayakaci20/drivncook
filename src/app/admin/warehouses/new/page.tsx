@@ -10,6 +10,7 @@ import { warehouseSchema, type WarehouseFormData } from '@/lib/validations'
 import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 export default function NewWarehousePage() {
   const router = useRouter()
@@ -46,10 +47,10 @@ export default function NewWarehousePage() {
         router.push('/admin/warehouses')
       } else {
         const err = await res.json()
-        alert(err?.error || "Erreur lors de la création de l'entrepôt")
+        toast.error(err?.error || "Erreur lors de la création de l'entrepôt")
       }
     } catch {
-      alert("Erreur lors de la création de l'entrepôt")
+      toast.error("Erreur lors de la création de l'entrepôt")
     } finally {
       setLoading(false)
     }

@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Package, Search, ShoppingCart, Eye, Filter, Apple, Utensils, Coffee, Box } from 'lucide-react'
+import { Package, Search, ShoppingCart, Eye, Filter, Apple, Utensils, Coffee, Box, Trash2, Minus, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from 'sonner'
+import { Elements, useElements, useStripe, CardNumberElement, CardExpiryElement, CardCvcElement } from '@stripe/react-stripe-js'
+import { loadStripe } from '@stripe/stripe-js'
+import { CheckoutDialog } from '@/components/ui/pay'
 
 interface Product {
   id: string
@@ -22,6 +27,7 @@ interface Product {
   stocks: Array<{
     quantity: number
     warehouse: {
+      id: string
       name: string
       city: string
     }
@@ -33,7 +39,13 @@ export default function FranchiseProductsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [cartOpen, setCartOpen] = useState(false)
+  const [cartItems, setCartItems] = useState<Array<{ product: Product; warehouseId: string; quantity: number }>>([])
+  const [requestedDate, setRequestedDate] = useState('')
+  const [notes, setNotes] = useState('')
+  const [checkingOut, setCheckingOut] = useState(false)
   const router = useRouter()
+  const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
   useEffect(() => {
     fetchProducts()
   }, [])
@@ -65,6 +77,121 @@ export default function FranchiseProductsPage() {
     return { label: 'En stock', variant: 'default' as const }
   }
 
+  const addToCart = (product: Product) => {
+    const available = getAvailableStock(product)
+    if (available === 0) {
+      toast.error('Stock insuffisant')
+      return
+    }
+    setCartItems(prev => {
+      const idx = prev.findIndex(ci => ci.product.id === product.id)
+      if (idx >= 0) {
+        const current = prev[idx]
+        const selected = product.stocks.find(s => s.warehouse.id === current.warehouseId)
+        const max = selected ? selected.quantity : available
+        const nextQty = Math.min(current.quantity + 1, max)
+        const next = [...prev]
+        next[idx] = { ...current, quantity: nextQty }
+        return next
+      }
+      const defaultWarehouse = product.stocks.find(s => s.quantity > 0) || product.stocks[0]
+      return [...prev, { product, warehouseId: defaultWarehouse?.warehouse.id || '', quantity: 1 }]
+    })
+    setCartOpen(true)
+    toast.success('Article ajouté au panier')
+  }
+
+  const removeFromCart = (productId: string) => {
+    setCartItems(prev => prev.filter(ci => ci.product.id !== productId))
+  }
+
+  const setItemWarehouse = (productId: string, warehouseId: string) => {
+    setCartItems(prev => prev.map(ci => ci.product.id === productId ? { ...ci, warehouseId, quantity: Math.min(ci.quantity, (ci.product.stocks.find(s => s.warehouse.id === warehouseId)?.quantity || ci.quantity)) } : ci))
+  }
+
+  const setItemQuantity = (productId: string, quantity: number) => {
+    setCartItems(prev => prev.map(ci => {
+      if (ci.product.id !== productId) return ci
+      const max = ci.product.stocks.find(s => s.warehouse.id === ci.warehouseId)?.quantity || ci.quantity
+      const nextQty = Math.max(1, Math.min(quantity, max))
+      return { ...ci, quantity: nextQty }
+    }))
+  }
+
+  const cartTotal = useMemo(() => cartItems.reduce((sum, ci) => sum + ci.quantity * ci.product.unitPrice, 0), [cartItems])
+
+  const canCheckout = cartItems.length > 0 && !checkingOut
+
+  const handleCheckout = async () => {
+    if (!canCheckout) return
+    setCheckingOut(true)
+    try {
+      const orderRes = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestedDeliveryDate: requestedDate || undefined, notes, isFromDrivnCook: false })
+      })
+      if (!orderRes.ok) {
+        const err = await orderRes.json().catch(() => ({}))
+        toast.error(err?.error || 'Erreur lors de la création de la commande')
+        return
+      }
+      const orderJson = await orderRes.json()
+      const orderData = orderJson?.data ?? orderJson
+      const orderId = orderData?.id as string | undefined
+      if (!orderId) {
+        toast.error('Erreur: ID de commande manquant')
+        return
+      }
+
+      for (const ci of cartItems) {
+        const unitPrice = ci.product.unitPrice
+        const res = await fetch('/api/order-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId,
+            productId: ci.product.id,
+            warehouseId: ci.warehouseId,
+            quantity: ci.quantity,
+            unitPrice,
+            notes
+          })
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          toast.error(err?.error || `Erreur sur l'article ${ci.product.name}`)
+          return
+        }
+      }
+
+      const piRes = await fetch('/api/payments/orders/intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      })
+      const piJson = await piRes.json().catch(() => null)
+      if (!piRes.ok || !piJson?.clientSecret) {
+        toast.error(piJson?.error || 'Erreur lors de l\'initialisation du paiement')
+        return
+      }
+
+      document.dispatchEvent(new CustomEvent('open-inline-payment', {
+        detail: {
+          clientSecret: piJson.clientSecret,
+          invoiceId: piJson.invoiceId
+        }
+      }))
+
+      setCartItems([])
+      setRequestedDate('')
+      setNotes('')
+      setCartOpen(false)
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -87,9 +214,9 @@ export default function FranchiseProductsPage() {
             Consultez les produits disponibles et passez vos commandes
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setCartOpen(true)}>
           <ShoppingCart className="h-4 w-4 mr-2" />
-          Nouvelle commande
+          Panier ({cartItems.length})
         </Button>
       </div>
 
@@ -209,16 +336,14 @@ export default function FranchiseProductsPage() {
                         <p className="text-lg font-bold text-gray-900 dark:text-neutral-100">
                           {product.unitPrice}€
                         </p>
-                        <p className="text-sm text-gray-600 dark:text-neutral-400">
-                          par {product.unit}
-                        </p>
+                        
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-600 dark:text-neutral-400">
                           Disponible
                         </p>
                         <p className="font-semibold">
-                          {availableStock} {product.unit}
+                          {availableStock}
                         </p>
                       </div>
                     </div>
@@ -235,7 +360,7 @@ export default function FranchiseProductsPage() {
                               {stock.warehouse.name} ({stock.warehouse.city})
                             </span>
                             <span className="font-medium">
-                              {stock.quantity} {product.unit}
+                              {stock.quantity}
                             </span>
                           </div>
                         ))}
@@ -251,10 +376,10 @@ export default function FranchiseProductsPage() {
                         size="sm" 
                         className="flex-1"
                         disabled={availableStock === 0}
-                        onClick={() => router.push(`/franchise/products/${product.id}/order`)}
+                        onClick={() => addToCart(product)}
                       >
                         <ShoppingCart className="h-4 w-4 mr-2" />
-                        Commander
+                        Ajouter
                       </Button>
                     </div>
                   </div>
@@ -264,6 +389,207 @@ export default function FranchiseProductsPage() {
             })}
         </div>
       )}
+      <Dialog open={cartOpen} onOpenChange={setCartOpen}>
+        <DialogContent className="w-full max-w-3xl md:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Panier de commande</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {cartItems.length === 0 ? (
+              <div className="text-center text-sm text-gray-600">Votre panier est vide</div>
+            ) : (
+              <div className="space-y-3">
+                {cartItems.map(ci => {
+                  const max = ci.product.stocks.find(s => s.warehouse.id === ci.warehouseId)?.quantity || 1
+                  return (
+                    <div key={ci.product.id} className="flex flex-col gap-3 border rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="font-medium">{ci.product.name}</div>
+                          <div className="text-xs text-gray-500">{ci.product.unitPrice} €</div>
+                        </div>
+                        <Button variant="outline" size="icon" onClick={() => removeFromCart(ci.product.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div className="md:col-span-6">
+                          <label className="block text-xs mb-1">Entrepôt</label>
+                          <select
+                            value={ci.warehouseId}
+                            onChange={(e) => setItemWarehouse(ci.product.id, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
+                          >
+                            {ci.product.stocks.map(s => (
+                              <option key={s.warehouse.id} value={s.warehouse.id}>
+                                 {s.warehouse.name} ({s.warehouse.city}) — dispo: {s.quantity}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="md:col-span-4">
+                          <label className="block text-xs mb-1">Quantité</label>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              disabled={ci.quantity <= 1}
+                              onClick={() => setItemQuantity(ci.product.id, ci.quantity - 1)}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={max}
+                              value={ci.quantity}
+                              onChange={(e) => setItemQuantity(ci.product.id, Number(e.target.value))}
+                              className="w-24 px-3 py-2 border border-gray-300 rounded-xl text-center dark:bg-neutral-800 dark:border-neutral-700"
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              disabled={ci.quantity >= max}
+                              onClick={() => setItemQuantity(ci.product.id, ci.quantity + 1)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                           <div className="mt-1 text-xs text-gray-500">Max: {max}</div>
+                        </div>
+                        <div className="md:col-span-2 md:text-right">
+                          <div className="text-xs text-gray-500">Total article</div>
+                          <div className="text-lg font-semibold">{(ci.quantity * ci.product.unitPrice).toFixed(2)} €</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="md:col-span-1">
+                <label className="block text-sm mb-1">Date de récupération souhaitée</label>
+                <input type="date" value={requestedDate} onChange={(e) => setRequestedDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm mb-1">Notes</label>
+                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Précisions éventuelles" className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between border-t pt-4 mt-2">
+              <div className="text-base text-gray-600">Total: <span className="font-semibold">{cartTotal.toFixed(2)} €</span></div>
+              <div className="flex gap-2 w-full md:w-auto justify-end">
+                <Button variant="outline" className="h-11 w-full md:w-auto" onClick={() => setCartOpen(false)}>Fermer</Button>
+                <Button className="h-11 w-full md:w-auto" onClick={handleCheckout} disabled={!canCheckout}>{checkingOut ? 'Validation…' : 'Valider la commande'}</Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter />
+        </DialogContent>
+      </Dialog>
+
+      {/* Composant de paiement inline (même que entry-fee) déclenché par événement */}
+      <Elements stripe={stripePromise}>
+        <InlineOrderPaymentListener />
+      </Elements>
     </div>
+  )
+}
+
+function InlineOrderPaymentListener() {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [open, setOpen] = useState(false)
+  const [clientSecret, setClientSecret] = useState('')
+  const [isDark, setIsDark] = useState(false)
+
+  useEffect(() => {
+    const check = () => {
+      try {
+        setIsDark(document.documentElement.classList.contains('dark'))
+      } catch {}
+    }
+    check()
+    const obs = new MutationObserver(check)
+    try {
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    } catch {}
+    return () => {
+      try { obs.disconnect() } catch {}
+    }
+  }, [])
+
+  const stripeFieldOptions = useMemo(() => ({
+    style: {
+      base: {
+        fontSize: '16px',
+        color: isDark ? '#ffffff' : '#111827',
+        '::placeholder': { color: isDark ? 'rgba(148,163,184,0.9)' : '#6b7280' },
+      },
+      invalid: { color: '#ef4444' },
+    },
+  }), [isDark])
+
+  useEffect(() => {
+    const onOpen = (e: any) => {
+      setClientSecret(e.detail?.clientSecret || '')
+      setOpen(true)
+    }
+    document.addEventListener('open-inline-payment', onOpen as any)
+    return () => document.removeEventListener('open-inline-payment', onOpen as any)
+  }, [])
+
+  async function handleConfirm() {
+    if (!stripe || !elements || !clientSecret) return
+    const card = elements.getElement(CardNumberElement)
+    const result = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: card as any } })
+    if (result.error) {
+      toast.error(result.error.message || 'Paiement refusé')
+      return
+    }
+    if (result.paymentIntent?.status === 'succeeded') {
+      const res = await fetch('/api/payments/orders/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentIntentId: result.paymentIntent.id })
+      })
+      const js = await res.json().catch(() => ({}))
+      if (res.ok) {
+        const base = '/franchise/orders?payment=success'
+        const params = new URLSearchParams()
+        if (js.orderId) params.set('orderId', js.orderId)
+        if (js.invoiceId) params.set('invoiceId', js.invoiceId)
+        window.location.href = `${base}&${params.toString()}`
+      } else {
+        toast.error(js?.error || 'Erreur de confirmation')
+      }
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="w-full max-w-md bg-white dark:bg-neutral-900">
+        <DialogHeader>
+          <DialogTitle className="text-gray-900 dark:text-neutral-100">Paiement de la commande</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-md shadow-xs">
+            <div className="relative focus-within:z-10 border rounded-t-md px-3 py-2 bg-white dark:bg-neutral-800">
+              <CardNumberElement options={stripeFieldOptions as any} />
+            </div>
+            <div className="-mt-px flex">
+              <div className="min-w-0 flex-1 focus-within:z-10 border rounded-bl-md px-3 py-2 bg-white dark:bg-neutral-800">
+                <CardExpiryElement options={stripeFieldOptions as any} />
+              </div>
+              <div className="-ms-px min-w-0 flex-1 focus-within:z-10 border rounded-br-md px-3 py-2 bg-white dark:bg-neutral-800">
+                <CardCvcElement options={stripeFieldOptions as any} />
+              </div>
+            </div>
+          </div>
+          <Button onClick={handleConfirm} className="w-full">Payer maintenant</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

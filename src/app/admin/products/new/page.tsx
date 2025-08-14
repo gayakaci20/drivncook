@@ -11,6 +11,7 @@ import { productSchema, type ProductFormData } from '@/lib/validations'
 import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 interface CategoryOption {
   id: string
@@ -34,7 +35,8 @@ export default function NewProductPage() {
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema as any),
     defaultValues: {
-      minStock: 0
+      minStock: 0,
+      unit: 'u'
     }
   })
 
@@ -106,10 +108,10 @@ export default function NewProductPage() {
         setQuickCategoryName('')
         setQuickCategoryDescription('')
       } else {
-        alert(json?.error || 'Erreur lors de la création de la catégorie')
+        toast.error(json?.error || 'Erreur lors de la création de la catégorie')
       }
     } catch {
-      alert('Erreur lors de la création de la catégorie')
+      toast.error('Erreur lors de la création de la catégorie')
     } finally {
       setCreatingCategory(false)
     }
@@ -143,10 +145,10 @@ export default function NewProductPage() {
         router.push('/admin/inventory')
       } else {
         const err = await res.json()
-        alert(err?.error || 'Erreur lors de la création du produit')
+        toast.error(err?.error || 'Erreur lors de la création du produit')
       }
     } catch (e) {
-      alert('Erreur lors de la création du produit')
+      toast.error('Erreur lors de la création du produit')
     } finally {
       setLoading(false)
     }
@@ -215,15 +217,7 @@ export default function NewProductPage() {
                 {errors.unitPrice && <p className="text-sm text-red-600 mt-1">{errors.unitPrice.message}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Unité *</label>
-                <input
-                  {...register('unit')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-800 dark:border-neutral-700"
-                  placeholder="pièce, kg, litre..."
-                />
-                {errors.unit && <p className="text-sm text-red-600 mt-1">{errors.unit.message}</p>}
-              </div>
+              
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Code-barres</label>

@@ -8,6 +8,8 @@ import {
 } from '@/lib/api-utils'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { notificationEmailService } from '@/lib/notification-service'
+import { NotificationType, NotificationPriority } from '@/types/notifications'
 
 interface RouteContext {
   params: { id: string }
@@ -151,6 +153,32 @@ export const PUT = withAuth(
         userId: (session.user as ExtendedUser).id
       }
     })
+
+    try {
+      if (typeof body.franchiseId !== 'undefined' && body.franchiseId !== existing.franchiseId) {
+        const notif = {
+          type: NotificationType.VEHICLE_ASSIGNED,
+          priority: NotificationPriority.MEDIUM,
+          title: 'Véhicule assigné',
+          message: `Le véhicule ${updated.licensePlate} a été assigné`,
+          data: { licensePlate: updated.licensePlate },
+          relatedEntityId: updated.id,
+          relatedEntityType: 'vehicle',
+          franchiseId: updated.franchiseId || undefined,
+          actionUrl: updated.franchiseId ? `/franchise/vehicle` : `/admin/vehicles/${updated.id}`
+        } as const
+        if (updated.franchiseId) {
+          await notificationEmailService.createNotificationWithEmail(
+            { ...notif, targetRole: 'FRANCHISEE' }
+          )
+        }
+        await notificationEmailService.createNotificationWithEmail(
+          { ...notif, targetRole: 'ADMIN' }
+        )
+      }
+    } catch (e) {
+      console.error('Erreur notification VEHICLE_ASSIGNED:', e)
+    }
 
     return createSuccessResponse(updated, 'Véhicule mis à jour avec succès')
   }),

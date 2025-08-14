@@ -104,6 +104,7 @@ export default function AdminOrdersPage() {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       'DRAFT': { label: 'Brouillon', variant: 'secondary' as const, icon: Edit },
+      'PAID': { label: 'Payée - PDF requis', variant: 'default' as const, icon: Clock },
       'PENDING': { label: 'En attente', variant: 'default' as const, icon: Clock },
       'CONFIRMED': { label: 'Confirmée', variant: 'default' as const, icon: CheckCircle },
       'IN_PREPARATION': { label: 'En préparation', variant: 'default' as const, icon: Package },
@@ -186,6 +187,7 @@ export default function AdminOrdersPage() {
                 <Button variant="outline" className="h-10 rounded-xl">
                   <Filter className="h-4 w-4" />
                   {statusFilter ? (
+                    statusFilter === 'PAID' ? 'Payée - PDF requis' :
                     statusFilter === 'PENDING' ? 'En attente' :
                     statusFilter === 'CONFIRMED' ? 'Confirmée' :
                     statusFilter === 'IN_PREPARATION' ? 'En préparation' :
@@ -202,6 +204,10 @@ export default function AdminOrdersPage() {
                   Tous les statuts
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setStatusFilter('PAID')}>
+                  <Clock className="h-4 w-4 text-orange-600" />
+                  Payée - PDF requis
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter('PENDING')}>
                   <Clock className="h-4 w-4 text-yellow-600" />
                   En attente

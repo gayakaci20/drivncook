@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { toast } from 'sonner'
 
 export default function NewVehiclePage() {
   const router = useRouter()
@@ -41,11 +42,11 @@ export default function NewVehiclePage() {
         router.push('/admin/vehicles')
       } else {
         const error = await response.json()
-        alert(error.error || 'Erreur lors de la création du véhicule')
+        toast.error(error.error || 'Erreur lors de la création du véhicule')
       }
     } catch (error) {
       console.error('Erreur:', error)
-      alert('Erreur lors de la création du véhicule')
+      toast.error('Erreur lors de la création du véhicule')
     } finally {
       setLoading(false)
     }

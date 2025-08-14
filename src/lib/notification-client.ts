@@ -1,11 +1,20 @@
-import { NotificationData, NotificationFilters, NotificationResponse, NotificationCreateRequest, NotificationUpdateRequest, NotificationStatus } from '@/types/notifications'
+import { NotificationData, NotificationFilters, NotificationResponse, NotificationStatus } from '@/types/notifications'
 
 export class NotificationAPI {
-  private static baseUrl = '/api'
+  private static getApiBase(): string {
+    if (typeof window !== 'undefined') return '/api'
+    const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.VERCEL_URL
+    if (origin) {
+      const normalized = origin.startsWith('http') ? origin : `https://${origin}`
+      return `${normalized}/api`
+    }
+    const host = process.env.HOST || 'localhost'
+    const port = process.env.PORT || '3000'
+    return `http://${host}:${port}/api`
+  }
 
   static async getAdminNotifications(filters?: NotificationFilters): Promise<NotificationResponse> {
     const params = new URLSearchParams()
-    
     if (filters?.type) params.append('type', filters.type.join(','))
     if (filters?.priority) params.append('priority', filters.priority.join(','))
     if (filters?.status) params.append('status', filters.status.join(','))
@@ -15,34 +24,12 @@ export class NotificationAPI {
     if (filters?.limit) params.append('limit', filters.limit.toString())
     if (filters?.offset) params.append('offset', filters.offset.toString())
 
-    const response = await fetch(`${this.baseUrl}/admin/notifications?${params}`)
-    return response.json()
-  }
-
-  static async createAdminNotification(notification: NotificationCreateRequest): Promise<{ success: boolean; data?: { notification: NotificationData }; error?: string }> {
-    const response = await fetch(`${this.baseUrl}/admin/notifications`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(notification)
-    })
-    return response.json()
-  }
-
-  static async updateAdminNotifications(ids: string[], updates: NotificationUpdateRequest): Promise<{ success: boolean; data?: { updatedCount: number; updatedIds: string[] }; error?: string }> {
-    const params = new URLSearchParams()
-    params.append('ids', ids.join(','))
-
-    const response = await fetch(`${this.baseUrl}/admin/notifications?${params}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    })
+    const response = await fetch(`${this.getApiBase()}/admin/notifications?${params}`, { credentials: 'include', cache: 'no-store' })
     return response.json()
   }
 
   static async getFranchiseNotifications(filters?: NotificationFilters): Promise<NotificationResponse> {
     const params = new URLSearchParams()
-    
     if (filters?.type) params.append('type', filters.type.join(','))
     if (filters?.priority) params.append('priority', filters.priority.join(','))
     if (filters?.status) params.append('status', filters.status.join(','))
@@ -51,39 +38,22 @@ export class NotificationAPI {
     if (filters?.limit) params.append('limit', filters.limit.toString())
     if (filters?.offset) params.append('offset', filters.offset.toString())
 
-    const response = await fetch(`${this.baseUrl}/franchise/notifications?${params}`)
-    return response.json()
-  }
-
-  static async createFranchiseNotification(notification: NotificationCreateRequest): Promise<{ success: boolean; data?: { notification: NotificationData }; error?: string }> {
-    const response = await fetch(`${this.baseUrl}/franchise/notifications`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(notification)
-    })
-    return response.json()
-  }
-
-  static async updateFranchiseNotifications(ids: string[], updates: NotificationUpdateRequest): Promise<{ success: boolean; data?: { updatedCount: number; updatedIds: string[] }; error?: string }> {
-    const params = new URLSearchParams()
-    params.append('ids', ids.join(','))
-
-    const response = await fetch(`${this.baseUrl}/franchise/notifications?${params}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    })
+    const response = await fetch(`${this.getApiBase()}/franchise/notifications?${params}`, { credentials: 'include', cache: 'no-store' })
     return response.json()
   }
 
   static async markAsRead(ids: string[], userRole: 'ADMIN' | 'FRANCHISEE'): Promise<{ success: boolean; error?: string }> {
     const updates = { status: NotificationStatus.READ, readAt: new Date() }
-    
-    if (userRole === 'ADMIN') {
-      return this.updateAdminNotifications(ids, updates)
-    } else {
-      return this.updateFranchiseNotifications(ids, updates)
-    }
+    const params = new URLSearchParams()
+    params.append('ids', ids.join(','))
+    const url = userRole === 'ADMIN' ? `${this.getApiBase()}/admin/notifications?${params}` : `${this.getApiBase()}/franchise/notifications?${params}`
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+      credentials: 'include'
+    })
+    return response.json()
   }
 
   static async markAllAsRead(userRole: 'ADMIN' | 'FRANCHISEE'): Promise<{ success: boolean; error?: string }> {
@@ -93,32 +63,22 @@ export class NotificationAPI {
         ? await this.getAdminNotifications(filters)
         : await this.getFranchiseNotifications(filters)
 
-      if (!response.success || !response.data) {
-        return { success: false, error: 'Failed to fetch notifications' }
-      }
-
+      if (!response.success || !response.data) return { success: false, error: 'Failed to fetch notifications' }
       const unreadIds = response.data.notifications.map(n => n.id)
-      
-      if (unreadIds.length === 0) {
-        return { success: true }
-      }
-
+      if (unreadIds.length === 0) return { success: true }
       return this.markAsRead(unreadIds, userRole)
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   }
 
   static convertToComponentFormat(apiNotifications: NotificationData[]): any[] {
     return apiNotifications.map(notification => ({
-      id: parseInt(notification.id.replace(/\D/g, '') || '0'),
+      id: parseInt((notification.id || '').toString().replace(/\D/g, '') || '0', 10),
       user: this.getNotificationUser(notification),
       action: this.getNotificationAction(notification),
       target: this.getNotificationTarget(notification),
-      timestamp: this.formatTimestamp(notification.createdAt),
+      timestamp: this.formatTimestamp((notification as any).createdAt),
       unread: notification.status === NotificationStatus.UNREAD
     }))
   }
@@ -126,10 +86,17 @@ export class NotificationAPI {
   private static getNotificationUser(notification: NotificationData): string {
     if (notification.data?.userName) return notification.data.userName
     if (notification.data?.franchiseName) return notification.data.franchiseName
-    return 'Système'
+    if ((notification as any).targetRole === 'FRANCHISEE') return 'Franchise'
+    return 'Admin'
   }
 
   private static getNotificationAction(notification: NotificationData): string {
+    if ((notification as any).type === 'PAYMENT_RECEIVED') {
+      if (typeof notification.data?.entityNumber === 'string' && notification.data.entityNumber.startsWith('ENTRY_FEE')) {
+        return 'a payé le'
+      }
+      return 'a reçu le paiement de'
+    }
     const actionMap: Record<string, string> = {
       'ORDER_CREATED': 'a créé la commande',
       'ORDER_CONFIRMED': 'a confirmé la commande',
@@ -143,7 +110,6 @@ export class NotificationAPI {
       'VEHICLE_BREAKDOWN': 'signale une panne sur',
       'INVOICE_GENERATED': 'a reçu la facture',
       'INVOICE_OVERDUE': 'a une facture en retard',
-      'PAYMENT_RECEIVED': 'a reçu le paiement de',
       'PAYMENT_FAILED': 'a un échec de paiement pour',
       'FRANCHISE_APPROVED': 'a été approuvé pour',
       'STOCK_LOW': 'a un stock faible de',
@@ -152,19 +118,27 @@ export class NotificationAPI {
       'USER_REGISTERED': 's\'est inscrit pour',
       'SYSTEM': 'informe sur'
     }
-    return actionMap[notification.type] || 'a une notification concernant'
+    return actionMap[(notification as any).type] || 'a une notification concernant'
   }
 
   private static getNotificationTarget(notification: NotificationData): string {
+    if ((notification as any).type === 'PAYMENT_RECEIVED') {
+      if (typeof notification.data?.entityNumber === 'string' && notification.data.entityNumber.startsWith('ENTRY_FEE')) {
+        return "Droit d'entrée"
+      }
+    }
     if (notification.data?.orderNumber) return notification.data.orderNumber
     if (notification.data?.licensePlate) return notification.data.licensePlate
     if (notification.data?.invoiceNumber) return notification.data.invoiceNumber
     if (notification.data?.productName) return notification.data.productName
+    if (notification.data?.franchiseName) return notification.data.franchiseName
     if (notification.data?.businessName) return notification.data.businessName
     return notification.title
   }
 
-  private static formatTimestamp(date: Date): string {
+  private static formatTimestamp(rawDate: unknown): string {
+    const date = rawDate instanceof Date ? rawDate : new Date(String(rawDate))
+    if (Number.isNaN(date.getTime())) return ''
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffMins = Math.floor(diffMs / (1000 * 60))
@@ -179,3 +153,7 @@ export class NotificationAPI {
     return date.toLocaleDateString('fr-FR')
   }
 }
+
+export default NotificationAPI
+
+

@@ -6,7 +6,7 @@ import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils'
 import { auth } from '@/lib/auth'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
-import { notificationEmailService } from '@/lib/notification-email-service'
+import { notificationEmailService } from '@/lib/notification-service'
 import { NotificationType, NotificationPriority } from '@/types/notifications'
 
  

@@ -11,6 +11,7 @@ import { UserRole } from '@/types/prisma-enums'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { warehouseSchema, type WarehouseFormData } from '@/lib/validations'
+import { toast } from 'sonner'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -72,10 +73,10 @@ export default function EditWarehousePage({ params }: PageProps) {
         router.push(`/admin/warehouses/${resolvedParams.id}`)
       } else {
         const err = await res.json()
-        alert(err?.error || "Erreur lors de la mise à jour")
+        toast.error(err?.error || "Erreur lors de la mise à jour")
       }
     } catch {
-      alert("Erreur lors de la mise à jour")
+      toast.error("Erreur lors de la mise à jour")
     } finally {
       setLoading(false)
     }

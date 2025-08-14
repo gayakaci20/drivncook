@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { toast } from 'sonner'
 
 interface PageProps { params: Promise<{ id: string }> }
 
@@ -92,12 +93,12 @@ export default function AssignVehicleToFranchiseePage({ params }: PageProps) {
       if (res.ok) {
         await loadVehicles()
         setSelectedVehicleId('')
-        alert("Véhicule assigné avec succès")
+        toast.success("Véhicule assigné avec succès")
       } else {
-        alert(json?.error || 'Erreur lors de l\'assignation')
+        toast.error(json?.error || 'Erreur lors de l\'assignation')
       }
     } catch (err) {
-      alert('Erreur lors de l\'assignation')
+      toast.error('Erreur lors de l\'assignation')
     } finally {
       setSubmitting(false)
     }

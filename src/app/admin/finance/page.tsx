@@ -30,6 +30,7 @@ import { ExtendedUser } from '@/types/auth'
 import { useSession } from '@/lib/auth-client'
 import { UserRole } from '@/types/prisma-enums'
 import { safeFetchJson } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface Invoice {
   id: string
@@ -211,14 +212,14 @@ export default function AdminFinancePage() {
 
       if (response.ok) {
         await fetchFinancialData()
-        alert('Facture générée avec succès')
+        toast.success('Facture générée avec succès')
       } else {
         const errorData = await response.json()
-        alert(`Erreur : ${errorData.error}`)
+        toast.error(`Erreur : ${errorData.error}`)
       }
     } catch (error) {
       console.error('Erreur lors de la génération de facture:', error)
-      alert('Erreur lors de la génération de la facture')
+      toast.error('Erreur lors de la génération de la facture')
     }
   }
 
@@ -333,17 +334,17 @@ export default function AdminFinancePage() {
 
       {/* Alertes financières */}
       {overdueInvoices > 0 && (
-        <Card className="rounded-2xl border-red-200 bg-red-50">
+        <Card className="rounded-2xl border-red-200 bg-red-50 dark:bg-red-900/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-600" />
               Factures en retard ({overdueInvoices})
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent> 
             <div className="grid gap-2 max-h-48 overflow-y-auto">
               {invoices.filter(i => i.paymentStatus === 'PENDING' && isOverdue(i.dueDate)).slice(0, 5).map((invoice) => (
-                <div key={invoice.id} className="flex items-center justify-between p-3 bg-white rounded-xl border">
+                <div key={invoice.id} className="flex items-center justify-between p-3 bg-white dark:bg-neutral-900/60 rounded-xl border">
                   <div>
                     <div className="font-medium">{invoice.invoiceNumber}</div>
                     <div className="text-sm text-gray-600">

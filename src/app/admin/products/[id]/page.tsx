@@ -156,11 +156,11 @@ export default function AdminProductDetailPage({ params }: PageProps) {
               </div>
               <div>
                 <div className="text-sm text-gray-500">Prix</div>
-                <div className="font-medium">{product.unitPrice} € / {product.unit}</div>
+               <div className="font-medium">{product.unitPrice} €</div>
               </div>
               <div>
                 <div className="text-sm text-gray-500">Stock minimum</div>
-                <div className="font-medium">{product.minStock} {product.unit}</div>
+               <div className="font-medium">{product.minStock}</div>
               </div>
               <div>
                 <div className="text-sm text-gray-500">Stock maximum</div>
@@ -177,19 +177,19 @@ export default function AdminProductDetailPage({ params }: PageProps) {
             <Card>
               <CardContent className="pt-4">
                 <div className="text-sm text-gray-500">Stock total</div>
-                <div className="text-xl font-semibold">{totalStock} {product.unit}</div>
+               <div className="text-xl font-semibold">{totalStock}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
                 <div className="text-sm text-gray-500">Réservé</div>
-                <div className="text-xl font-semibold">{totalReserved} {product.unit}</div>
+               <div className="text-xl font-semibold">{totalReserved}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
                 <div className="text-sm text-gray-500">Disponible</div>
-                <div className="text-xl font-semibold">{totalAvailable} {product.unit}</div>
+               <div className="text-xl font-semibold">{totalAvailable}</div>
               </CardContent>
             </Card>
           </div>
@@ -205,7 +205,7 @@ export default function AdminProductDetailPage({ params }: PageProps) {
                       <div className="text-xs text-gray-500">{s.warehouse.city}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-semibold">{s.quantity - s.reservedQty} {product.unit}</div>
+                      <div className="text-lg font-semibold">{s.quantity - s.reservedQty}</div>
                       <div className="text-xs text-gray-500">disponible</div>
                     </div>
                   </div>

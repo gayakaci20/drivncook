@@ -8,6 +8,8 @@ import {
 } from '@/lib/api-utils'
 import { ExtendedUser } from '@/types/auth'
 import { UserRole } from '@/types/prisma-enums'
+import { notificationEmailService } from '@/lib/notification-service'
+import { NotificationType, NotificationPriority } from '@/types/notifications'
 
 function parsePeriod(period?: string) {
   const iso = period && /^\d{4}-\d{2}$/.test(period) ? period : new Date().toISOString().slice(0, 7)
@@ -93,6 +95,28 @@ export const POST = withAuth(
         userId: (session.user as ExtendedUser).id
       }
     })
+
+    try {
+      const notif = {
+        type: NotificationType.INVOICE_GENERATED,
+        priority: NotificationPriority.MEDIUM,
+        title: 'Nouvelle facture générée',
+        message: `Facture ${invoice.invoiceNumber} générée (${Number(invoice.amount)}€)`,
+        data: { invoiceNumber: invoice.invoiceNumber, amount: Number(invoice.amount) },
+        relatedEntityId: invoice.id,
+        relatedEntityType: 'invoice',
+        franchiseId: invoice.franchiseId,
+        actionUrl: `/franchise/invoices`
+      } as const
+      await notificationEmailService.createNotificationWithEmail(
+        { ...notif, targetRole: 'FRANCHISEE' }
+      )
+      await notificationEmailService.createNotificationWithEmail(
+        { ...notif, targetRole: 'ADMIN' }
+      )
+    } catch (e) {
+      console.error('Erreur notification INVOICE_GENERATED:', e)
+    }
 
     return createSuccessResponse({ invoice, period: iso, reportCount })
   }),

@@ -10,6 +10,7 @@ import { UserRole } from '@/types/prisma-enums'
 
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface ProductOption { id: string; name: string; unit: string; minStock: number }
 interface WarehouseOption { id: string; name: string }
@@ -99,7 +100,7 @@ export default function NewInventoryPage() {
   }
 
   const selectedProduct = useMemo(() => products.find(p => p.id === form.productId) || null, [products, form.productId])
-  const unitLabel = selectedProduct?.unit || 'unités'
+  const unitLabel = ''
   const isRemoveDisabled = form.operation === 'REMOVE' && (!currentStock || currentStock.available <= 0)
   const quantityMax = form.operation === 'REMOVE' && currentStock ? currentStock.available : undefined
 
@@ -125,10 +126,10 @@ export default function NewInventoryPage() {
         router.push('/admin/inventory')
       } else {
         const err = await res.json()
-        alert(err?.error || 'Erreur lors de l\'opération de stock')
+        toast.error(err?.error || 'Erreur lors de l\'opération de stock')
       }
     } catch (e) {
-      alert('Erreur lors de l\'opération de stock')
+      toast.error('Erreur lors de l\'opération de stock')
     } finally {
       setLoading(false)
     }
@@ -189,7 +190,7 @@ export default function NewInventoryPage() {
                 </select>
                 {currentStock && (
                   <div className="mt-2 text-xs text-gray-600">
-                    Stock actuel: <span className="font-medium">{currentStock.total} {unitLabel}</span> • Réservé: <span className="font-medium text-orange-600">{currentStock.reserved} {unitLabel}</span> • Disponible: <span className="font-medium text-green-600">{currentStock.available} {unitLabel}</span>
+                   Stock actuel: <span className="font-medium">{currentStock.total}</span> • Réservé: <span className="font-medium text-orange-600">{currentStock.reserved}</span> • Disponible: <span className="font-medium text-green-600">{currentStock.available}</span>
                   </div>
                 )}
               </div>

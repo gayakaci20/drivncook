@@ -79,6 +79,11 @@ const navigation: NavItem[] = [
     ]
   },
   {
+    title: 'Notifications',
+    href: '/admin/notifications',
+    icon: BarChart3
+  },
+  {
     title: 'Rapports',
     href: '/admin/reports',
     icon: FileText
