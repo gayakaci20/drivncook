@@ -145,6 +145,10 @@ type CheckoutDialogProps = {
   cancelUrl?: string
   currency?: string
   locale?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  orderId?: string
+  paymentType?: 'ENTRY_FEE' | 'ORDER'
 }
 
 export function CheckoutDialog({
@@ -156,6 +160,10 @@ export function CheckoutDialog({
   cancelUrl,
   currency = 'EUR',
   locale = 'fr-FR',
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  orderId,
+  paymentType = 'ENTRY_FEE',
 }: CheckoutDialogProps) {
   const id = useId()
   const { meta, getCardNumberProps, getExpiryDateProps, getCVCProps, getCardImageProps } =
@@ -164,7 +172,10 @@ export function CheckoutDialog({
   const [showCouponInput, setShowCouponInput] = useState(false)
   const [couponCode, setCouponCode] = useState("")
   const [isPaying, setIsPaying] = useState(false)
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen
+  const setOpen = controlledOnOpenChange || setInternalOpen
 
   const formattedAmount = React.useMemo(() => {
     try {
@@ -183,12 +194,26 @@ export function CheckoutDialog({
   async function handleCheckoutInline(stripe: any, elements: any) {
     try {
       setIsPaying(true)
-      const res = await fetch("/api/payments/entry-fee/intent", { method: "POST" })
+      
+      // Choisir l'endpoint selon le type de paiement
+      const intentEndpoint = paymentType === 'ORDER' ? '/api/payments/orders/intent' : '/api/payments/entry-fee/intent'
+      const confirmEndpoint = paymentType === 'ORDER' ? '/api/payments/orders/confirm' : '/api/payments/entry-fee/confirm'
+      
+      // Préparer le body de la requête
+      const requestBody = paymentType === 'ORDER' && orderId ? { orderId } : {}
+      
+      const res = await fetch(intentEndpoint, { 
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
       const json = await res.json().catch(() => ({}))
+      
       if (!res.ok || !json?.clientSecret) {
         console.error("PI error", json?.error || res.statusText)
         return
       }
+      
       const cardElement = elements.getElement(CardNumberElement)
       const result = await stripe.confirmCardPayment(json.clientSecret, {
         payment_method: {
@@ -196,12 +221,14 @@ export function CheckoutDialog({
           billing_details: {},
         },
       })
+      
       if (result.error) {
         console.error(result.error.message)
         return
       }
+      
       if (result.paymentIntent?.status === 'succeeded') {
-        await fetch('/api/payments/entry-fee/confirm', {
+        await fetch(confirmEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paymentIntentId: result.paymentIntent.id }),

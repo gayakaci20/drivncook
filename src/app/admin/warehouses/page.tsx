@@ -17,6 +17,7 @@ import {
   Mail
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 
 interface Warehouse {
   id: string
@@ -43,6 +44,7 @@ interface Warehouse {
 }
 
 export default function AdminWarehousesPage() {
+  const WarehouseMap = dynamic(() => import('@/components/maps/WarehouseMap'), { ssr: false })
   const router = useRouter()
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,6 +155,18 @@ export default function AdminWarehousesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Carte des entrepôts */}
+      {warehouses.length > 0 && (
+        <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium flex items-center gap-2"><MapPin className="h-4 w-4" /> Localisation des entrepôts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WarehouseMap warehouses={warehouses as any} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recherche */}
       <Card className="rounded-2xl border-gray-200/80 dark:border-neutral-800">

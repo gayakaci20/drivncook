@@ -5,8 +5,9 @@ import { useSession } from '@/lib/auth-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MapPin, Navigation } from 'lucide-react'
-import FranchiseMap from '@/components/maps/FranchiseMap'
 import { ExtendedUser } from '@/types/auth'
+import WarehouseMap from '@/components/maps/WarehouseMap'
+import FranchiseMap from '@/components/maps/FranchiseMap'
 
 type Franchise = {
   id: string
@@ -23,9 +24,11 @@ export default function FranchiseLocationPage() {
   const { data: session } = useSession()
   const [loading, setLoading] = useState(true)
   const [franchise, setFranchise] = useState<Franchise | null>(null)
+  const [warehouses, setWarehouses] = useState<any[]>([])
 
   useEffect(() => {
     fetchData()
+    fetchWarehouses()
   }, [])
 
   async function fetchData() {
@@ -37,6 +40,16 @@ export default function FranchiseLocationPage() {
       if (json?.success) setFranchise(json.data)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchWarehouses() {
+    try {
+      const res = await fetch('/api/warehouses?limit=1000')
+      const json = await res.json()
+      if (json?.success) setWarehouses(json.data.data || [])
+    } catch (error) {
+      console.error('Erreur lors du chargement des entrepôts:', error)
     }
   }
 
@@ -55,10 +68,22 @@ export default function FranchiseLocationPage() {
     }]
   }, [franchise])
 
+  const warehousesForMap = useMemo(() => {
+    return warehouses.map(w => ({
+      id: w.id,
+      name: w.name,
+      address: w.address,
+      city: w.city,
+      postalCode: w.postalCode,
+      region: w.region,
+      isActive: w.isActive
+    }))
+  }, [warehouses])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Ma Localisation</h1>
+        <h1 className="text-2xl font-bold">Localisation des entrepôts</h1>
       </div>
 
       <Card>
@@ -79,15 +104,12 @@ export default function FranchiseLocationPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="rounded-xl border p-4">
-                <div className="font-medium">{franchise.businessName}</div>
-                <div className="text-sm text-gray-600">
-                  {franchise.address}<br />
-                  {franchise.postalCode} {franchise.city}<br />
-                  {franchise.region}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Entrepôts du réseau ({warehouses.length})</h3>
+                  <WarehouseMap warehouses={warehousesForMap as any} />
                 </div>
               </div>
-              <FranchiseMap franchises={franchiseForMap as any} />
             </div>
           )}
         </CardContent>

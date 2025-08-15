@@ -59,14 +59,30 @@ export default function FranchiseSalesPage() {
       
       const params = new URLSearchParams({
         startDate: startDate.slice(0, 10),
-        endDate: endDate.slice(0, 10)
+        endDate: endDate.slice(0, 10),
+        limit: '1000',
+        sortBy: 'reportDate',
+        sortOrder: 'asc'
       })
 
       const response = await fetch(`/api/sales-reports?${params}`)
-        const data = await response.json()
-      
+      const data = await response.json()
+
       if (data.success) {
-        setSalesReports(data.data.data || [])
+        const rows = (data.data.data || []).map((r: any) => ({
+          ...r,
+          dailySales: Number(r?.dailySales ?? 0),
+          transactionCount: Number(r?.transactionCount ?? 0),
+          averageTicket: r?.averageTicket != null
+            ? Number(r.averageTicket)
+            : (Number(r?.transactionCount ?? 0) > 0
+                ? Number(r?.dailySales ?? 0) / Number(r?.transactionCount ?? 0)
+                : 0),
+          royaltyAmount: r?.royaltyAmount != null
+            ? Number(r.royaltyAmount)
+            : Number(r?.dailySales ?? 0) * 0.04
+        }))
+        setSalesReports(rows)
       }
     } catch (error) {
       console.error('Erreur lors du chargement des rapports:', error)
@@ -138,10 +154,11 @@ export default function FranchiseSalesPage() {
   }
 
   const formatAmount = (amount: number) => {
+    const value = Number.isFinite(amount) ? amount : 0
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR'
-    }).format(amount)
+    }).format(value)
   }
 
   const formatDate = (dateString: string) => {

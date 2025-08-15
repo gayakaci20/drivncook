@@ -120,25 +120,112 @@ export default function AdminFinancePage() {
 
   const fetchFinancialData = async () => {
     try {
-      const [invoicesRes, paymentsRes, royaltiesRes] = await Promise.all([
-        fetch(`/api/invoices?search=${searchTerm}&status=${statusFilter}`),
-        fetch(`/api/payments?search=${searchTerm}`),
-        fetch(`/api/royalties?period=${periodFilter}`)
+      const { startDate, endDate } = getPeriodRange(periodFilter)
+      const params = new URLSearchParams()
+      params.set('limit', '100')
+      params.set('sortBy', 'issueDate')
+      params.set('sortOrder', 'desc')
+      if (statusFilter) params.set('paymentStatus', statusFilter)
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate)
+
+      const salesParams = new URLSearchParams()
+      salesParams.set('limit', '500')
+      salesParams.set('sortBy', 'reportDate')
+      salesParams.set('sortOrder', 'desc')
+      if (startDate) salesParams.set('startDate', startDate)
+      if (endDate) salesParams.set('endDate', endDate)
+
+      const [invoicesRes, salesReportsRes] = await Promise.all([
+        fetch(`/api/invoices?${params.toString()}`),
+        fetch(`/api/sales-reports?${salesParams.toString()}`)
       ])
 
       if (invoicesRes.ok) {
-        const invoicesData = await invoicesRes.json()
-        setInvoices(invoicesData.data.data || [])
+        const json = await invoicesRes.json()
+        const rows = json?.data?.data || json?.data || []
+        const mapped: Invoice[] = rows.map((r: any) => ({
+          id: r.id,
+          invoiceNumber: r.invoiceNumber,
+          issueDate: r.issueDate,
+          dueDate: r.dueDate,
+          amount: Number(r.amount ?? 0),
+          taxAmount: 0,
+          totalAmount: Number(r.amount ?? 0),
+          paymentStatus: r.paymentStatus,
+          paymentDate: r.paidDate ?? null,
+          paymentMethod: null,
+          description: r.description ?? null,
+          items: [],
+          franchise: {
+            id: r.franchise?.id,
+            businessName: r.franchise?.businessName,
+            user: {
+              firstName: r.franchise?.user?.firstName ?? '',
+              lastName: r.franchise?.user?.lastName ?? '',
+              email: r.franchise?.user?.email ?? ''
+            },
+            contactEmail: r.franchise?.contactEmail ?? ''
+          }
+        }))
+        setInvoices(mapped)
+
+        const derivedPayments: Payment[] = mapped
+          .filter(i => i.paymentStatus === 'PAID')
+          .map((i) => ({
+            id: i.id,
+            amount: normalizeNumber(i.totalAmount),
+            paymentDate: i.paymentDate ?? i.issueDate,
+            paymentMethod: i.paymentMethod ?? '—',
+            paymentReference: null,
+            status: 'CONFIRMED',
+            notes: null,
+            franchise: {
+              id: i.franchise.id,
+              businessName: i.franchise.businessName,
+              user: { firstName: i.franchise.user.firstName, lastName: i.franchise.user.lastName }
+            },
+            invoice: { id: i.id, invoiceNumber: i.invoiceNumber }
+          }))
+        setPayments(derivedPayments)
       }
 
-      if (paymentsRes.ok) {
-        const paymentsData = await paymentsRes.json()
-        setPayments(paymentsData.data.data || [])
-      }
-
-      if (royaltiesRes.ok) {
-        const royaltiesData = await royaltiesRes.json()
-        setRoyalties(royaltiesData.data || [])
+      if (salesReportsRes.ok) {
+        const json = await salesReportsRes.json()
+        const rows = json?.data?.data || json?.data || []
+        const grouped = new Map<string, RoyaltyReport>()
+        rows.forEach((r: any) => {
+          const fid = r.franchiseId
+          const existing = grouped.get(fid)
+          const royaltyRate = Number(r.franchise?.royaltyRate ?? 0)
+          const totalSalesAdd = Number(r.dailySales ?? 0)
+          const royaltyAdd = Number(r.royaltyAmount ?? 0)
+          const isPaid = r.paymentStatus === 'PAID'
+          const isOverdueStatus = r.paymentStatus === 'OVERDUE'
+          const pendingAdd = isPaid ? 0 : royaltyAdd
+          if (!existing) {
+            grouped.set(fid, {
+              franchiseId: fid,
+              franchiseName: r.franchise?.businessName ?? '',
+              period: getPeriodLabel(periodFilter),
+              totalSales: totalSalesAdd,
+              royaltyRate,
+              royaltyAmount: royaltyAdd,
+              paidAmount: isPaid ? royaltyAdd : 0,
+              pendingAmount: pendingAdd,
+              status: isOverdueStatus ? 'OVERDUE' : isPaid ? 'UP_TO_DATE' : 'PENDING',
+              lastPaymentDate: null
+            })
+          } else {
+            existing.totalSales += totalSalesAdd
+            existing.royaltyAmount += royaltyAdd
+            existing.paidAmount += isPaid ? royaltyAdd : 0
+            existing.pendingAmount += pendingAdd
+            if (isOverdueStatus) existing.status = 'OVERDUE'
+            else if (!isPaid && existing.status !== 'OVERDUE') existing.status = 'PENDING'
+          }
+        })
+        setRoyalties(Array.from(grouped.values()))
       }
     } catch (error) {
       console.error('Erreur lors du chargement des données financières:', error)
@@ -147,16 +234,52 @@ export default function AdminFinancePage() {
     }
   }
 
+  const getPeriodRange = (period: string) => {
+    const now = new Date()
+    let start = new Date(now)
+    let end = new Date(now)
+    if (period === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    } else if (period === 'quarter') {
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3
+      start = new Date(now.getFullYear(), qStartMonth, 1)
+      end = new Date(now.getFullYear(), qStartMonth + 3, 0)
+    } else if (period === 'year') {
+      start = new Date(now.getFullYear(), 0, 1)
+      end = new Date(now.getFullYear(), 11, 31)
+    }
+    return { startDate: start.toISOString(), endDate: end.toISOString() }
+  }
+
+  const getPeriodLabel = (period: string) => {
+    if (period === 'month') return new Date().toISOString().slice(0, 7)
+    if (period === 'year') return String(new Date().getFullYear())
+    return 'Trimestre en cours'
+  }
+
   const formatCurrency = (amount: number) => {
+    const safeAmount = Number.isFinite(amount) ? amount : 0
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'EUR'
-    }).format(amount)
+    }).format(safeAmount)
   }
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Non défini'
     return new Date(dateString).toLocaleDateString('fr-FR')
+  }
+
+  const normalizeNumber = (input: unknown): number => {
+    if (typeof input === 'number') return Number.isFinite(input) ? input : 0
+    if (typeof input === 'string') {
+      const normalized = input.replace(/\s/g, '').replace(',', '.')
+      const parsed = Number(normalized)
+      return Number.isFinite(parsed) ? parsed : 0
+    }
+    const coerced = Number(input)
+    return Number.isFinite(coerced) ? coerced : 0
   }
 
   const getPaymentStatusBadge = (status: string) => {
@@ -227,11 +350,15 @@ export default function AdminFinancePage() {
   const totalInvoices = invoices.length
   const paidInvoices = invoices.filter(i => i.paymentStatus === 'PAID').length
   const overdueInvoices = invoices.filter(i => i.paymentStatus === 'PENDING' && isOverdue(i.dueDate)).length
-  const totalRevenue = invoices.filter(i => i.paymentStatus === 'PAID').reduce((sum, i) => sum + i.totalAmount, 0)
-  const pendingAmount = invoices.filter(i => i.paymentStatus === 'PENDING').reduce((sum, i) => sum + i.totalAmount, 0)
-  const totalRoyalties = royalties.reduce((sum, r) => sum + r.royaltyAmount, 0)
-  const pendingRoyalties = royalties.reduce((sum, r) => sum + r.pendingAmount, 0)
-  const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
+  const totalRevenue = invoices
+    .filter(i => i.paymentStatus === 'PAID')
+    .reduce((sum, i) => sum + normalizeNumber(i.totalAmount), 0)
+  const pendingAmount = invoices
+    .filter(i => i.paymentStatus === 'PENDING')
+    .reduce((sum, i) => sum + normalizeNumber(i.totalAmount), 0)
+  const totalRoyalties = royalties.reduce((sum, r) => sum + normalizeNumber(r.royaltyAmount), 0)
+  const pendingRoyalties = royalties.reduce((sum, r) => sum + normalizeNumber(r.pendingAmount), 0)
+  const totalPayments = payments.reduce((sum, p) => sum + normalizeNumber(p.amount), 0)
 
   if (loading) {
     return (

@@ -9,8 +9,6 @@ import { useRouter } from 'next/navigation'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Elements, useElements, useStripe, CardNumberElement, CardExpiryElement, CardCvcElement } from '@stripe/react-stripe-js'
-import { loadStripe } from '@stripe/stripe-js'
 import { CheckoutDialog } from '@/components/ui/pay'
 
 interface Product {
@@ -44,8 +42,22 @@ export default function FranchiseProductsPage() {
   const [requestedDate, setRequestedDate] = useState('')
   const [notes, setNotes] = useState('')
   const [checkingOut, setCheckingOut] = useState(false)
+  const [showPayment, setShowPayment] = useState(false)
+  const [orderDetails, setOrderDetails] = useState<{ amount: number; itemCount: number; orderId: string } | null>(null)
+
   const router = useRouter()
-  const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('drivncook-requested-delivery-date')
+      if (saved) setRequestedDate(saved)
+    } catch {}
+  }, [])
+  useEffect(() => {
+    try {
+      if (requestedDate) localStorage.setItem('drivncook-requested-delivery-date', requestedDate)
+      else localStorage.removeItem('drivncook-requested-delivery-date')
+    } catch {}
+  }, [requestedDate])
   useEffect(() => {
     fetchProducts()
   }, [])
@@ -165,31 +177,23 @@ export default function FranchiseProductsPage() {
         }
       }
 
-      const piRes = await fetch('/api/payments/orders/intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId })
-      })
-      const piJson = await piRes.json().catch(() => null)
-      if (!piRes.ok || !piJson?.clientSecret) {
-        toast.error(piJson?.error || 'Erreur lors de l\'initialisation du paiement')
-        return
-      }
-
-      document.dispatchEvent(new CustomEvent('open-inline-payment', {
-        detail: {
-          clientSecret: piJson.clientSecret,
-          invoiceId: piJson.invoiceId
-        }
-      }))
-
+      const itemCount = cartItems.length
+      const amount = Math.round(cartTotal * 100)
+      
+      setOrderDetails({ amount, itemCount, orderId })
       setCartItems([])
-      setRequestedDate('')
       setNotes('')
       setCartOpen(false)
+      setShowPayment(true)
+      
+      toast.success('Commande créée avec succès')
     } finally {
       setCheckingOut(false)
     }
+  }
+
+  const handlePayNow = async () => {
+    await handleCheckout()
   }
 
   if (loading) {
@@ -481,7 +485,7 @@ export default function FranchiseProductsPage() {
               <div className="text-base text-gray-600">Total: <span className="font-semibold">{cartTotal.toFixed(2)} €</span></div>
               <div className="flex gap-2 w-full md:w-auto justify-end">
                 <Button variant="outline" className="h-11 w-full md:w-auto" onClick={() => setCartOpen(false)}>Fermer</Button>
-                <Button className="h-11 w-full md:w-auto" onClick={handleCheckout} disabled={!canCheckout}>{checkingOut ? 'Validation…' : 'Valider la commande'}</Button>
+                <Button className="h-11 w-full md:w-auto" onClick={handlePayNow} disabled={!canCheckout}>{checkingOut ? 'Validation…' : 'Finaliser la commande'}</Button>
               </div>
             </div>
           </div>
@@ -489,107 +493,21 @@ export default function FranchiseProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Composant de paiement inline (même que entry-fee) déclenché par événement */}
-      <Elements stripe={stripePromise}>
-        <InlineOrderPaymentListener />
-      </Elements>
+      {/* CheckoutDialog contrôlé qui s'ouvre automatiquement */}
+      {orderDetails && (
+        <CheckoutDialog
+          open={showPayment}
+          onOpenChange={setShowPayment}
+          amountInCents={orderDetails.amount}
+          description={`Commande ${orderDetails.itemCount} article${orderDetails.itemCount > 1 ? 's' : ''}`}
+          triggerLabel="Payer maintenant"
+          buttonLabel="Finaliser le paiement"
+          successUrl={`/franchise/orders?payment=success`}
+          cancelUrl="/franchise/products"
+          orderId={orderDetails.orderId}
+          paymentType="ORDER"
+        />
+      )}
     </div>
-  )
-}
-
-function InlineOrderPaymentListener() {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [open, setOpen] = useState(false)
-  const [clientSecret, setClientSecret] = useState('')
-  const [isDark, setIsDark] = useState(false)
-
-  useEffect(() => {
-    const check = () => {
-      try {
-        setIsDark(document.documentElement.classList.contains('dark'))
-      } catch {}
-    }
-    check()
-    const obs = new MutationObserver(check)
-    try {
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    } catch {}
-    return () => {
-      try { obs.disconnect() } catch {}
-    }
-  }, [])
-
-  const stripeFieldOptions = useMemo(() => ({
-    style: {
-      base: {
-        fontSize: '16px',
-        color: isDark ? '#ffffff' : '#111827',
-        '::placeholder': { color: isDark ? 'rgba(148,163,184,0.9)' : '#6b7280' },
-      },
-      invalid: { color: '#ef4444' },
-    },
-  }), [isDark])
-
-  useEffect(() => {
-    const onOpen = (e: any) => {
-      setClientSecret(e.detail?.clientSecret || '')
-      setOpen(true)
-    }
-    document.addEventListener('open-inline-payment', onOpen as any)
-    return () => document.removeEventListener('open-inline-payment', onOpen as any)
-  }, [])
-
-  async function handleConfirm() {
-    if (!stripe || !elements || !clientSecret) return
-    const card = elements.getElement(CardNumberElement)
-    const result = await stripe.confirmCardPayment(clientSecret, { payment_method: { card: card as any } })
-    if (result.error) {
-      toast.error(result.error.message || 'Paiement refusé')
-      return
-    }
-    if (result.paymentIntent?.status === 'succeeded') {
-      const res = await fetch('/api/payments/orders/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentIntentId: result.paymentIntent.id })
-      })
-      const js = await res.json().catch(() => ({}))
-      if (res.ok) {
-        const base = '/franchise/orders?payment=success'
-        const params = new URLSearchParams()
-        if (js.orderId) params.set('orderId', js.orderId)
-        if (js.invoiceId) params.set('invoiceId', js.invoiceId)
-        window.location.href = `${base}&${params.toString()}`
-      } else {
-        toast.error(js?.error || 'Erreur de confirmation')
-      }
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="w-full max-w-md bg-white dark:bg-neutral-900">
-        <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-neutral-100">Paiement de la commande</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="rounded-md shadow-xs">
-            <div className="relative focus-within:z-10 border rounded-t-md px-3 py-2 bg-white dark:bg-neutral-800">
-              <CardNumberElement options={stripeFieldOptions as any} />
-            </div>
-            <div className="-mt-px flex">
-              <div className="min-w-0 flex-1 focus-within:z-10 border rounded-bl-md px-3 py-2 bg-white dark:bg-neutral-800">
-                <CardExpiryElement options={stripeFieldOptions as any} />
-              </div>
-              <div className="-ms-px min-w-0 flex-1 focus-within:z-10 border rounded-br-md px-3 py-2 bg-white dark:bg-neutral-800">
-                <CardCvcElement options={stripeFieldOptions as any} />
-              </div>
-            </div>
-          </div>
-          <Button onClick={handleConfirm} className="w-full">Payer maintenant</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   )
 }

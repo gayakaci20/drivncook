@@ -49,7 +49,7 @@ drivncook/
 │   ├── components/            # Composants React réutilisables
 │   ├── hooks/                 # Hooks personnalisés
 │   ├── lib/                   # Utilitaires et configurations
-│   └── types/                 # Définitions TypeScript
+│   ├── types/                 # Définitions TypeScript
 │   └── utils/                 # Utilitaires partagés (helpers de style, détection React, etc.)
 ├── prisma/                    # Schema et migrations Prisma
 ├── public/                    # Assets statiques

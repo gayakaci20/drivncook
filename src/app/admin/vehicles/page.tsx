@@ -144,6 +144,18 @@ export default function AdminVehiclesPage() {
     }).format(amount)
   }
 
+  const formatCurrencyCompact = (amount: number | string) => {
+    const n = typeof amount === 'number' ? amount : Number(amount)
+    if (!Number.isFinite(n)) return '—'
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1
+    }).format(n)
+  }
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       'ASSIGNED': { label: 'Assigné', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
@@ -203,7 +215,7 @@ export default function AdminVehiclesPage() {
     available: vehicles.filter(v => v.status === 'AVAILABLE').length,
     maintenance: vehicles.filter(v => v.status === 'MAINTENANCE').length,
     outOfService: vehicles.filter(v => v.status === 'OUT_OF_SERVICE').length,
-    totalValue: vehicles.reduce((sum, v) => sum + v.purchasePrice, 0),
+    totalValue: vehicles.reduce((sum, v) => sum + (typeof v.purchasePrice === 'number' ? v.purchasePrice : Number(v.purchasePrice || 0)), 0),
     avgMileage: vehicles.filter(v => v.currentMileage).reduce((sum, v) => sum + (v.currentMileage || 0), 0) / vehicles.filter(v => v.currentMileage).length || 0
   }
 
@@ -289,7 +301,7 @@ export default function AdminVehiclesPage() {
             <div className="size-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center"><Calendar className="h-4 w-4" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{formatCurrency(stats.totalValue)}</div>
+            <div className="text-2xl font-semibold">{formatCurrencyCompact(stats.totalValue)}</div>
             <p className="text-xs text-muted-foreground">Parc complet</p>
           </CardContent>
         </Card>

@@ -276,7 +276,7 @@ export default function AdminOrdersPage() {
                     </div>
                     {order.requestedDeliveryDate && (
                       <div className="text-center">
-                        <p className="text-sm text-gray-600 dark:text-neutral-400">Livraison souhaitée</p>
+                        <p className="text-sm text-gray-600 dark:text-neutral-400">Date de récupération souhaitée</p>
                         <p className="font-medium">{formatDate(order.requestedDeliveryDate)}</p>
                       </div>
                     )}

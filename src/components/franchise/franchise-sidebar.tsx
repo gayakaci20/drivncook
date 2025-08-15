@@ -85,19 +85,13 @@ const navigation: NavItem[] = [
     title: 'Localisation',
     href: '/franchise/location',
     icon: MapPin,
-    description: 'Gérer vos emplacements'
+    description: 'Localisation des entrepôts'
   },
   {
     title: 'Support',
     href: '/franchise/profile/contact',
     icon: MessageSquare,
     description: 'Aide et contact'
-  },
-  {
-    title: 'Paramètres',
-    href: '/franchise/settings',
-    icon: Settings,
-    description: 'Configuration du compte'
   }
 ]
 

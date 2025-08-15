@@ -178,8 +178,8 @@ export default function AdminOrderDetailPage({ params }: PageProps) {
 
           {order.requestedDeliveryDate && (
             <div>
-              <div className="text-sm text-gray-500">Livraison souhaitée</div>
-              <div className="font-medium">{new Date(order.requestedDeliveryDate).toLocaleDateString()}</div>
+              <div className="text-sm text-gray-500">Date de récupération souhaitée</div>
+              <div className="font-medium">{new Date(order.requestedDeliveryDate).toLocaleDateString('fr-FR')}</div>
             </div>
           )}
 

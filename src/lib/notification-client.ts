@@ -79,7 +79,9 @@ export class NotificationAPI {
       action: this.getNotificationAction(notification),
       target: this.getNotificationTarget(notification),
       timestamp: this.formatTimestamp((notification as any).createdAt),
-      unread: notification.status === NotificationStatus.UNREAD
+      unread: notification.status === NotificationStatus.UNREAD,
+      title: notification.title,
+      message: notification.message,
     }))
   }
 

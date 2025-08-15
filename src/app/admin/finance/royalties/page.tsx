@@ -12,6 +12,8 @@ import { UserRole } from '@/types/prisma-enums'
 import { toast } from 'sonner'
 
 interface RoyaltyReport {
+  id?: string
+  reportDate?: string
   franchiseId: string
   franchiseName: string
   period: string
@@ -49,6 +51,7 @@ export default function RoyaltiesPage() {
       const payload = json?.data?.data || json?.data || []
       setData(payload.map((r: any) => ({
         ...r,
+        period: r.period ?? (r.reportDate ? new Date(r.reportDate).toISOString().slice(0, 7) : ''),
         totalSales: Number(r.totalSales ?? r.dailySales ?? 0),
         royaltyAmount: Number(r.royaltyAmount ?? 0),
         paidAmount: Number(r.paidAmount ?? 0),
@@ -155,7 +158,8 @@ export default function RoyaltiesPage() {
 
       <div className="space-y-4">
         {filtered.map((r) => (
-          <Card key={`${r.franchiseId}-${r.period}`} className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
+          <Card key={r.id ?? `${r.franchiseId}-${r.reportDate ?? r.period}`}
+            className="rounded-2xl border-gray-200/80 dark:border-neutral-800">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">

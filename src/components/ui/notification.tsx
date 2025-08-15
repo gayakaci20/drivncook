@@ -20,6 +20,8 @@ export interface NotificationItem {
   target: string
   timestamp: string
   unread: boolean
+  title?: string
+  message?: string
 }
 
 const notificationVariants = cva(
@@ -94,17 +96,32 @@ const NotificationItemComponent = React.forwardRef<HTMLDivElement, NotificationI
         <div className="relative flex items-start pe-3">
           <div className="flex-1 space-y-1">
             <button
-              className="text-foreground/80 text-left after:absolute after:inset-0"
+              className="text-foreground/80 text-left after:absolute after:inset-0 w-full"
               onClick={() => onNotificationClick?.(notification.id)}
             >
-              <span className="text-foreground font-medium hover:underline">
-                {notification.user}
-              </span>{" "}
-              {notification.action}{" "}
-              <span className="text-foreground font-medium hover:underline">
-                {notification.target}
-              </span>
-              .
+              {notification.title ? (
+                <>
+                  <div className="text-foreground font-medium hover:underline">
+                    {notification.title}
+                  </div>
+                  {notification.message && (
+                    <div className="text-muted-foreground text-xs">
+                      {notification.message}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-foreground font-medium hover:underline">
+                    {notification.user}
+                  </span>{" "}
+                  {notification.action}{" "}
+                  <span className="text-foreground font-medium hover:underline">
+                    {notification.target}
+                  </span>
+                  .
+                </>
+              )}
             </button>
             <div className="text-muted-foreground text-xs">
               {notification.timestamp}

@@ -299,7 +299,7 @@ export default function FranchiseDashboardPage() {
               {formatCurrency(stats.overview.totalRoyalties)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.overview.totalRoyalties * 0.04} €
+              {formatCurrency(stats.overview.totalRoyalties * 0.04)}
             </p>
           </CardContent>
         </Card>
