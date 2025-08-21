@@ -16,7 +16,7 @@ help:
 
 # Configuration initiale
 setup:
-	@./scripts/docker-setup.sh
+	@./scripts/setup-env.sh
 
 # Mode développement
 dev:

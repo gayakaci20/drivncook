@@ -9,7 +9,10 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+# Copy Prisma schema before installing dependencies to avoid postinstall errors
+COPY prisma ./prisma
+# Skip postinstall during deps installation to avoid Prisma errors
+RUN npm ci --omit=dev --ignore-scripts
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -21,11 +24,8 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Build the application
-RUN npm run build
+# Generate Prisma client and build the application
+RUN npx prisma generate && npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
