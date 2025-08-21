@@ -9,6 +9,20 @@ echo "=== DRIV'N COOK - Deploy with SSL (${DOMAIN}) ==="
 
 cd "$(dirname "$0")"
 
+# Configuration automatique de l'environnement
+echo "Configuration de l'environnement..."
+./scripts/setup-env.sh
+
+# Vérifier que le fichier .env existe et n'est pas vide
+if [ ! -f .env ] || [ ! -s .env ]; then
+    echo "❌ Erreur : Le fichier .env est manquant ou vide"
+    echo "   Exécutez : ./scripts/setup-env.sh"
+    echo "   Puis éditez le fichier .env avec vos vraies valeurs"
+    exit 1
+fi
+
+echo "✅ Fichier .env configuré"
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker not found"
   exit 1

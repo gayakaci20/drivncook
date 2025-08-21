@@ -11,8 +11,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 # Copy Prisma schema before installing dependencies to avoid postinstall errors
 COPY prisma ./prisma
-# Skip postinstall during deps installation to avoid Prisma errors
-RUN npm ci --omit=dev --ignore-scripts
+# Install ALL dependencies (including dev) for the build process
+RUN npm ci --ignore-scripts
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -27,6 +27,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Generate Prisma client and build the application
 RUN npx prisma generate && npm run build
 
+# Install only production dependencies for runtime
+FROM base AS runtime-deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+RUN npm ci --omit=dev --ignore-scripts && npx prisma generate
+
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
@@ -36,6 +44,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# Copy production dependencies
+COPY --from=runtime-deps /app/node_modules ./node_modules
+COPY --from=runtime-deps /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy the public folder
 COPY --from=builder /app/public ./public
@@ -51,7 +63,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy Prisma schema and migrations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 USER nextjs
 

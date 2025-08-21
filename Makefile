@@ -1,6 +1,6 @@
 # Makefile pour Driv'n Cook
 
-.PHONY: help setup dev build start stop clean logs deploy
+.PHONY: help setup dev build start stop clean logs deploy debug
 
 # Afficher l'aide
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  clean     - Nettoyer les conteneurs et images"
 	@echo "  logs      - Afficher les logs"
 	@echo "  deploy    - Déployer avec SSL"
+	@echo "  debug     - Déboguer les problèmes de build"
 
 # Configuration initiale
 setup:
@@ -52,3 +53,8 @@ logs:
 deploy:
 	@echo "Déploiement avec SSL..."
 	@./deploy.sh
+
+# Déboguer les problèmes
+debug:
+	@echo "Debug des problèmes de build..."
+	@./scripts/debug-build.sh
