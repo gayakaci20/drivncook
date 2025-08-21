@@ -347,7 +347,12 @@ export default function AdminInventoryPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">
-              {Math.round(warehouses.reduce((sum, w) => sum + w.capacity, 0) / warehouses.length)}%
+              {warehouses.length > 0 
+                ? Math.round(warehouses.reduce((sum, w) => {
+                    const currentStock = w.stocks.reduce((stockSum, s) => stockSum + s.quantity, 0)
+                    return sum + (currentStock / w.capacity) * 100
+                  }, 0) / warehouses.length) 
+                : 0}%
             </div>
             <p className="text-xs text-muted-foreground">Utilisation moyenne</p>
           </CardContent>

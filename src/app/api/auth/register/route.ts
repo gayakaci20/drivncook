@@ -289,7 +289,6 @@ export async function POST(request: NextRequest) {
         )
       } catch (emailError) {
         console.error('Erreur lors de l\'envoi des emails d\'inscription franchisé:', emailError)
-        // On ne fait pas échouer l'inscription si l'email ne peut pas être envoyé
       }
 
       return createSuccessResponse(

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # Application web en mode développement
+  web-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: drivncook-web-dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:/app/data/dev.db
+      - NEXTAUTH_SECRET=dev-secret-key
+      - NEXTAUTH_URL=http://localhost:3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+    ports:
+      - "3000:3000"
+    networks:
+      - drivncook-dev-network
+    command: npm run dev
+
+networks:
+  drivncook-dev-network:
+    driver: bridge

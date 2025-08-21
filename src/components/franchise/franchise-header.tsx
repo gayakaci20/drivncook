@@ -122,10 +122,10 @@ export function FranchiseHeader() {
 
           {/* Actions rapides */}
           <div className="hidden md:flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl">
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => router.push('/franchise/products')}>
               Nouvelle commande
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl">
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => router.push('/franchise/sales')}>
               Saisir ventes
             </Button>
           </div>

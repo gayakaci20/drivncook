@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Configuration pour Docker
+  output: "standalone",
+  experimental: {
+    outputFileTracingRoot: undefined,
+  },
 };
 
 export default nextConfig;
