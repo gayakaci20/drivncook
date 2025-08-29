@@ -28,6 +28,8 @@ export default function ForgotPassword() {
     setIsLoading(true)
     setError('')
     
+    console.log('Submitting forgot password form with email:', email)
+    
     try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
@@ -37,17 +39,22 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email: email.toLowerCase() }),
       })
 
+      console.log('Response status:', response.status)
       const data = await response.json()
+      console.log('Response data:', data)
 
       if (data.success) {
+        console.log('Success, showing submitted state')
         setIsSubmitted(true)
       } else {
+        console.log('Error:', data.error)
         setError(data.error || 'Une erreur est survenue')
       }
     } catch (error) {
-      console.error('Erreur lors de l\'envoi:', error)
+      console.error('Fetch error:', error)
       setError('Erreur de connexion. Veuillez réessayer.')
     } finally {
+      console.log('Setting loading to false')
       setIsLoading(false)
     }
   }

@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000'
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(user.email)}`
 
+    console.log('Attempting to send password reset email to:', user.email)
+    console.log('Reset URL:', resetUrl)
+    
     const emailResult = await emailService.sendEmail({
       to: user.email,
       subject: 'DRIV\'N COOK - Réinitialisation de votre mot de passe',
@@ -66,6 +69,8 @@ export async function POST(request: NextRequest) {
         expiryTime: '1 heure'
       })
     })
+
+    console.log('Email service result:', JSON.stringify(emailResult, null, 2))
 
     if (!emailResult.success) {
       console.error('Error sending reset password email:', emailResult.error)

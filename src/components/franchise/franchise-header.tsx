@@ -17,7 +17,6 @@ import {
   LogOut, 
   Settings,
   ChevronDown,
-  SearchIcon,
   Moon,
   Sun
 } from 'lucide-react'
@@ -80,16 +79,8 @@ export function FranchiseHeader() {
       <div className="flex items-center justify-between">
         {/* Informations franchise */}
         <div className="flex items-center gap-6">
-          {/* Search */}
-          <div className="relative max-w-sm group">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
-            <input
-              type="text"
-              placeholder="Rechercher..."
-              className="w-full pl-10 pr-4 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm backdrop-blur-md outline-none transition-all focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 text-sm"
-            />
+          <div className="relative group">
           </div>
-
 
         </div>
 

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       cancelUrl?: string
     }
 
-    const defaultAmount = Math.round(Number(franchise.entryFee) * 100)
+    const defaultAmount = Math.round(Number(franchise.entryFee))
     const amountInCents = typeof body.amountInCents === 'number' && body.amountInCents > 0
       ? Math.floor(body.amountInCents)
       : defaultAmount

@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-DOMAIN=${DOMAIN:-drivncook.pro}
+DOMAIN=${DOMAIN:-drivincook.com}
 WWW_DOMAIN=${WWW_DOMAIN:-www.${DOMAIN}}
-EMAIL=${EMAIL:-contact@drivncook.pro}
+EMAIL=${EMAIL:-contact@drivincook.com}
 
 echo "=== DRIV'N COOK - Deploy with SSL (${DOMAIN}) ==="
 
@@ -15,13 +15,13 @@ echo "Configuration de l'environnement..."
 
 # Vérifier que le fichier .env existe et n'est pas vide
 if [ ! -f .env ] || [ ! -s .env ]; then
-    echo "❌ Erreur : Le fichier .env est manquant ou vide"
+    echo "Erreur : Le fichier .env est manquant ou vide"
     echo "   Exécutez : ./scripts/setup-env.sh"
     echo "   Puis éditez le fichier .env avec vos vraies valeurs"
     exit 1
 fi
 
-echo "✅ Fichier .env configuré"
+echo "Fichier .env configuré"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker not found"

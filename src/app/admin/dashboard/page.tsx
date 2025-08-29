@@ -236,7 +236,6 @@ export default function AdminDashboardPage() {
         <TabsList className="rounded-xl">
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="franchises">Franchisés</TabsTrigger>
-          <TabsTrigger value="analysis">Analyses</TabsTrigger>
         </TabsList>
 
         <TabsContent value="performance" className="space-y-4">

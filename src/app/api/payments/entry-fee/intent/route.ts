@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
     const stripe = new Stripe(stripeSecret)
 
-    const amount = Math.round(Number(franchise.entryFee) * 100)
+    const amount = Math.round(Number(franchise.entryFee))
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,

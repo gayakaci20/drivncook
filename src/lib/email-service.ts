@@ -81,6 +81,7 @@ class EmailService {
 
   async sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      console.log('📧 Initializing email service...')
       await this.initializeTransporter()
 
       if (!this.transporter) {
@@ -96,14 +97,28 @@ class EmailService {
         attachments: options.attachments,
       }
 
+      console.log('📧 Sending email with options:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        hasText: !!mailOptions.text,
+        hasHtml: !!mailOptions.html
+      })
+
       const result = await this.transporter.sendMail(mailOptions)
+
+      console.log('✅ Email sent successfully:', {
+        messageId: result.messageId,
+        accepted: result.accepted,
+        rejected: result.rejected
+      })
 
       return {
         success: true,
         messageId: result.messageId,
       }
     } catch (error) {
-      console.error('Error sending email:', error)
+      console.error('❌ Error sending email:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

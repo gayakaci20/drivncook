@@ -77,15 +77,8 @@ export function AdminHeader() {
   return (
     <header className="sticky top-0 z-30 bg-white/70 dark:bg-neutral-900/50 backdrop-blur-xl border-b border-gray-200/70 dark:border-neutral-800 shadow-[0_1px_0_0_rgba(0,0,0,0.02)] px-4 sm:px-6 py-4.5">
       <div className="flex items-center justify-between gap-4">
-        {/* Search */}
-        <div className="flex-1 max-w-xl">
+        <div className="flex-1">
           <div className="relative group">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-500" />
-            <input
-              type="text"
-              placeholder="Rechercher..."
-              className="w-full pl-10 pr-4 h-10 rounded-xl border border-gray-200/70 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/60 shadow-sm backdrop-blur-md outline-none transition-all focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50"
-            />
           </div>
         </div>
 

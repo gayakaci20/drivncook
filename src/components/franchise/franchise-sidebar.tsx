@@ -24,6 +24,11 @@ interface NavItem {
   href: string
   icon: any
   description?: string
+  requiresPayment?: boolean
+}
+
+interface FranchiseSidebarProps {
+  entryFeePaid?: boolean
 }
 
 const navigation: NavItem[] = [
@@ -43,37 +48,43 @@ const navigation: NavItem[] = [
     title: 'Mon véhicule',
     href: '/franchise/vehicle',
     icon: Truck,
-    description: 'État, maintenance et localisation'
+    description: 'État, maintenance et localisation',
+    requiresPayment: true
   },
   {
     title: 'Mes commandes',
     href: '/franchise/orders',
     icon: ShoppingCart,
-    description: 'Nouvelles commandes et historique'
+    description: 'Nouvelles commandes et historique',
+    requiresPayment: true
   },
   {
     title: 'Produits',
     href: '/franchise/products',
     icon: Package,
-    description: 'Catalogue et disponibilité'
+    description: 'Catalogue et disponibilité',
+    requiresPayment: true
   },
   {
     title: 'Mes ventes',
     href: '/franchise/sales',
     icon: DollarSign,
-    description: 'Saisie et consultation des ventes'
+    description: 'Saisie et consultation des ventes',
+    requiresPayment: true
   },
   {
     title: 'Rapports',
     href: '/franchise/reports',
     icon: BarChart3,
-    description: 'Analyses et statistiques'
+    description: 'Analyses et statistiques',
+    requiresPayment: true
   },
   {
     title: 'Factures',
     href: '/franchise/invoices',
     icon: FileText,
-    description: 'Factures et paiements'
+    description: 'Factures et paiements',
+    requiresPayment: true
   },
   {
     title: 'Notifications',
@@ -85,7 +96,8 @@ const navigation: NavItem[] = [
     title: 'Localisation',
     href: '/franchise/location',
     icon: MapPin,
-    description: 'Localisation des entrepôts'
+    description: 'Localisation des entrepôts',
+    requiresPayment: true
   },
   {
     title: 'Support',
@@ -95,7 +107,7 @@ const navigation: NavItem[] = [
   }
 ]
 
-export function FranchiseSidebar() {
+export function FranchiseSidebar({ entryFeePaid = false }: FranchiseSidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -139,30 +151,44 @@ export function FranchiseSidebar() {
       <div className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href
+          const isLocked = item.requiresPayment && !entryFeePaid
           
-          return (
-            <Link
-              key={item.title}
-              href={item.href}
+          const element = (
+            <div
               className={cn(
                 'flex items-center gap-3 px-3 py-3 text-sm rounded-xl transition-colors group',
-                isActive
-                  ? 'bg-blue-50/70 dark:bg-red-950/30 text-white-700 dark:text-red-400 border-r-2 border-red-600'
-                  : 'text-gray-700 dark:text-neutral-300 hover:bg-gray-100/70 dark:hover:bg-neutral-800/40 hover:text-gray-900 dark:hover:text-neutral-100'
+                isLocked && 'opacity-40 cursor-not-allowed',
+                !isLocked && isActive
+                  ? 'bg-blue-50/70 dark:bg-red-950/30 text-blue-700 dark:text-red-400 border-r-2 border-red-600'
+                  : !isLocked && 'text-gray-700 dark:text-neutral-300 hover:bg-gray-100/70 dark:hover:bg-neutral-800/40 hover:text-gray-900 dark:hover:text-neutral-100',
+                isLocked && 'text-gray-400 dark:text-neutral-600'
               )}
-              title={collapsed ? item.title : undefined}
+              title={collapsed ? (isLocked ? `${item.title} (Paiement requis)` : item.title) : undefined}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium">{item.title}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    {item.title}
+                    {isLocked && <span className="text-xs">🔒</span>}
+                  </div>
                   {item.description && (
                     <div className="text-xs text-gray-500 dark:text-neutral-400 group-hover:text-gray-600 dark:group-hover:text-neutral-300 mt-0.5">
-                      {item.description}
+                      {isLocked ? 'Paiement requis pour accéder' : item.description}
                     </div>
                   )}
                 </div>
               )}
+            </div>
+          )
+
+          return isLocked ? (
+            <div key={item.title}>
+              {element}
+            </div>
+          ) : (
+            <Link key={item.title} href={item.href}>
+              {element}
             </Link>
           )
         })}
