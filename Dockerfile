@@ -1,5 +1,7 @@
 # Dockerfile pour l'application Driv'n Cook
+# Alternative images si Docker Hub est inaccessible
 FROM node:20-alpine AS base
+# Alternatives: docker.io/library/node:20-alpine, mirror.gcr.io/library/node:20-alpine
 
 # Install dependencies only when needed
 FROM base AS deps
