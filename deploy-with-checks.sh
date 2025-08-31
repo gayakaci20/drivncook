@@ -18,12 +18,10 @@ if [ "${SKIP_CHECKS}" != "true" ]; then
     
     # 1. Check environment
     echo "1. Checking environment..."
-    ./scripts/setup-env.sh
     
     if [ ! -f .env ] || [ ! -s .env ]; then
         echo "   ✗ .env file is missing or empty"
-        echo "   Run: ./scripts/setup-env.sh"
-        echo "   Then edit .env with your actual values"
+        echo "   Please create .env file with your configuration"
         exit 1
     fi
     echo "   ✓ .env file configured"

@@ -70,24 +70,33 @@ services:
 
   # Service d'initialisation de la base de données
   database-init:
-    image: node:20-alpine
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-deps
     container_name: drivncook-db-init
     working_dir: /app
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://drivncook:drivncook_password@postgres:5432/drivncook}
+      - NODE_ENV=production
     volumes:
-      - .:/app
+      - ./prisma:/app/prisma
     command: >
       sh -c "
-        npm install &&
+        echo 'Starting database initialization...' &&
+        echo 'DATABASE_URL: ${DATABASE_URL}' &&
+        ls -la /app/prisma/ &&
         npx prisma generate &&
-        npx prisma migrate deploy
+        echo 'Running database migrations...' &&
+        npx prisma migrate deploy &&
+        echo 'Database initialization completed successfully!'
       "
     networks:
       - drivncook-network
     depends_on:
       postgres:
         condition: service_healthy
+    restart: no
 
   # Serveur web (nginx)
   nginx:
