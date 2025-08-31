@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=file:/app/data/production.db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://drivncook:drivncook_password@postgres:5432/drivncook}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-default-secret-change-in-production}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - UPLOADTHING_SECRET=${UPLOADTHING_SECRET}
@@ -20,14 +20,33 @@ services:
       - EMAIL_PASS=${EMAIL_PASS}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     volumes:
-      - ./data:/app/data
       - ./uploads:/app/public/uploads
     networks:
       - drivncook-network
     depends_on:
+      - postgres
       - database-init
     ports:
       - "3000:3000"
+
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: drivncook-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-drivncook}
+      - POSTGRES_USER=${POSTGRES_USER:-drivncook}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-drivncook_password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - drivncook-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-drivncook} -d ${POSTGRES_DB:-drivncook}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Service d'initialisation de la base de données
   database-init:
@@ -35,10 +54,9 @@ services:
     container_name: drivncook-db-init
     working_dir: /app
     environment:
-      - DATABASE_URL=file:/app/data/production.db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://drivncook:drivncook_password@postgres:5432/drivncook}
     volumes:
       - .:/app
-      - ./data:/app/data
     command: >
       sh -c "
         npm install &&
@@ -47,6 +65,9 @@ services:
       "
     networks:
       - drivncook-network
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # Serveur web (nginx)
   nginx:
@@ -96,7 +117,7 @@ networks:
     driver: bridge
 
 volumes:
-  app-data:
+  postgres-data:
     driver: local
   redis-data:
     driver: local
