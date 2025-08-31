@@ -3,7 +3,7 @@ set -euo pipefail
 
 DOMAIN=${DOMAIN:-drivincook.pro}
 WWW_DOMAIN=${WWW_DOMAIN:-www.${DOMAIN}}
-EMAIL=${EMAIL:-contact@drivincook.com}
+EMAIL=${EMAIL:-contact@drivincook.pro}
 SKIP_CHECKS=${SKIP_CHECKS:-false}
 
 echo "=== DRIV'N COOK - Enhanced Deploy with SSL + Redis (${DOMAIN}) ==="
@@ -46,26 +46,138 @@ if [ "${SKIP_CHECKS}" != "true" ]; then
     
     # 4. Check and fix environment variables
     echo "3. Checking environment variables..."
+    
+    # Create .env if it doesn't exist
+    if [ ! -f .env ]; then
+        echo "   Creating .env file..."
+        touch .env
+        echo "   ✓ .env file created"
+    fi
+    
     if [ -f .env ]; then
-        # Check for BETTER_AUTH_SECRET
-        if ! grep -q "BETTER_AUTH_SECRET" .env || grep -q "^BETTER_AUTH_SECRET=$" .env; then
+        # Check for BETTER_AUTH_SECRET (don't overwrite if exists with value)
+        if ! grep -q "BETTER_AUTH_SECRET" .env; then
             echo "   Adding missing BETTER_AUTH_SECRET..."
             BETTER_AUTH_SECRET=$(openssl rand -base64 32)
             echo "BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}" >> .env
             echo "   ✓ BETTER_AUTH_SECRET added"
+        elif grep -q "^BETTER_AUTH_SECRET=$" .env; then
+            echo "   Updating empty BETTER_AUTH_SECRET..."
+            BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+            sed -i "s/^BETTER_AUTH_SECRET=$/BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}/" .env
+            echo "   ✓ BETTER_AUTH_SECRET updated"
         else
             echo "   ✓ BETTER_AUTH_SECRET configured"
         fi
         
         # Check for NEXTAUTH_SECRET
-        if ! grep -q "NEXTAUTH_SECRET" .env || grep -q "^NEXTAUTH_SECRET=$" .env; then
+        if ! grep -q "NEXTAUTH_SECRET" .env; then
             echo "   Adding missing NEXTAUTH_SECRET..."
             NEXTAUTH_SECRET=$(openssl rand -base64 32)
             echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}" >> .env
             echo "   ✓ NEXTAUTH_SECRET added"
+        elif grep -q "^NEXTAUTH_SECRET=$" .env; then
+            echo "   Updating empty NEXTAUTH_SECRET..."
+            NEXTAUTH_SECRET=$(openssl rand -base64 32)
+            sed -i "s/^NEXTAUTH_SECRET=$/NEXTAUTH_SECRET=${NEXTAUTH_SECRET}/" .env
+            echo "   ✓ NEXTAUTH_SECRET updated"
         else
             echo "   ✓ NEXTAUTH_SECRET configured"
         fi
+
+        # Add PostgreSQL variables if missing
+        if ! grep -q "DATABASE_URL" .env; then
+            echo "DATABASE_URL=postgresql://drivncook:drivncook_password@postgres:5432/drivncook" >> .env
+            echo "   ✓ DATABASE_URL added"
+        fi
+        if ! grep -q "POSTGRES_DB" .env; then
+            echo "POSTGRES_DB=drivncook" >> .env
+            echo "POSTGRES_USER=drivncook" >> .env
+            echo "POSTGRES_PASSWORD=drivncook_password" >> .env
+            echo "   ✓ PostgreSQL variables added"
+        fi
+
+        # Add domain-specific variables if missing
+        if ! grep -q "NEXTAUTH_URL" .env; then
+            echo "NEXTAUTH_URL=https://${DOMAIN}" >> .env
+            echo "   ✓ NEXTAUTH_URL added with domain"
+        fi
+        if ! grep -q "BETTER_AUTH_URL" .env; then
+            echo "BETTER_AUTH_URL=https://${DOMAIN}" >> .env
+            echo "   ✓ BETTER_AUTH_URL added with domain"
+        fi
+
+        # Add production variables if missing
+        echo "   Adding production variables if missing..."
+        
+        # UploadThing configuration (empty - must be configured manually)
+        if ! grep -q "UPLOADTHING_SECRET" .env; then
+            echo "UPLOADTHING_SECRET=" >> .env
+            echo "UPLOADTHING_KEY=" >> .env
+            echo "UPLOADTHING_APP_ID=" >> .env
+            echo "UPLOADTHING_TOKEN=" >> .env
+            echo "   ⚠ UploadThing variables added (empty - configure with your keys)"
+        fi
+        
+        # Email configuration (empty - must be configured manually)
+        if ! grep -q "EMAIL_USER" .env; then
+            echo "EMAIL_USER=" >> .env
+            echo "EMAIL_PASS=" >> .env
+            echo "SMTP_HOST=smtp.gmail.com" >> .env
+            echo "SMTP_PORT=587" >> .env
+            echo "SMTP_USER=" >> .env
+            echo "EMAIL_FROM=" >> .env
+            echo "EMAIL_FROM_NAME=DRIV'N COOK" >> .env
+            echo "   ⚠ Email SMTP variables added (empty - configure with your credentials)"
+        fi
+        
+        # JWT Secret (auto-generate if empty)
+        if ! grep -q "JWT_SECRET" .env; then
+            JWT_SECRET=$(openssl rand -base64 32)
+            echo "JWT_SECRET=${JWT_SECRET}" >> .env
+            echo "   ✓ JWT secret auto-generated"
+        fi
+        
+        # Add empty Stripe variables (disabled by default)
+        for var in "STRIPE_SECRET_KEY" "STRIPE_PUBLISHABLE_KEY" "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"; do
+            if ! grep -q "^${var}=" .env; then
+                echo "${var}=" >> .env
+            fi
+        done
+        echo "   ✓ Production configuration completed"
+        
+        # Display .env status for debugging
+        echo ""
+        echo "   Current .env configuration:"
+        echo "   ------------------------"
+        if [ -f .env ]; then
+            # Show non-empty variables (mask sensitive values)
+            while IFS= read -r line; do
+                if [[ "$line" =~ ^[A-Z_]+= ]]; then
+                    var_name=$(echo "$line" | cut -d'=' -f1)
+                    var_value=$(echo "$line" | cut -d'=' -f2-)
+                    case "$var_name" in
+                        *SECRET*|*PASSWORD*|*KEY*|*TOKEN*)
+                            if [[ -n "$var_value" ]]; then
+                                echo "   $var_name=*****(configured)"
+                            else
+                                echo "   $var_name=(empty)"
+                            fi
+                            ;;
+                        *)
+                            if [[ -n "$var_value" ]]; then
+                                echo "   $var_name=$var_value"
+                            else
+                                echo "   $var_name=(empty)"
+                            fi
+                            ;;
+                    esac
+                fi
+            done < .env
+        else
+            echo "   .env file not found"
+        fi
+        echo "   ------------------------"
     fi
     
     # 5. DNS Check
@@ -488,6 +600,16 @@ else
             sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx.conf
             rm -f nginx.conf.tmp
             echo "   ✓ SSL configuration applied"
+            
+            # Update auth URLs to use HTTPS
+            echo "Updating auth URLs to use HTTPS..."
+            if [ -f .env ]; then
+                sed -i.tmp "s|NEXTAUTH_URL=http://|NEXTAUTH_URL=https://|g" .env
+                sed -i.tmp "s|BETTER_AUTH_URL=http://|BETTER_AUTH_URL=https://|g" .env
+                sed -i.tmp "s|NEXT_PUBLIC_BASE_URL=http://|NEXT_PUBLIC_BASE_URL=https://|g" .env
+                rm -f .env.tmp
+                echo "   ✓ Auth URLs updated to HTTPS"
+            fi
         else
             echo "   ✗ nginx-ssl.conf not found, cannot enable SSL"
             echo "   Creating nginx-ssl.conf from backup..."
