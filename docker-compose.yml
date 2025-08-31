@@ -87,9 +87,20 @@ services:
         echo 'DATABASE_URL: ${DATABASE_URL}' &&
         ls -la /app/prisma/ &&
         npx prisma generate &&
-        echo 'Running database migrations...' &&
-        npx prisma migrate deploy &&
-        echo 'Database initialization completed successfully!'
+        echo 'Running database migrations with retry...' &&
+        for i in \$$(seq 1 10); do
+          echo \"Migration attempt \$$i/10...\"
+          if npx prisma migrate deploy; then
+            echo 'Database initialization completed successfully!'
+            exit 0
+          fi
+          if [ \$$i -eq 10 ]; then
+            echo 'Migration failed after 10 attempts, exiting...'
+            exit 1
+          fi
+          echo 'Migration failed, retrying in 5 seconds...'
+          sleep 5
+        done
       "
     networks:
       - drivncook-network

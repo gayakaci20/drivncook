@@ -8,8 +8,8 @@ CREATE TABLE "users" (
     "phone" TEXT,
     "role" TEXT NOT NULL DEFAULT 'FRANCHISEE',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
@@ -27,13 +27,13 @@ CREATE TABLE "franchises" (
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "entryFee" DECIMAL NOT NULL DEFAULT 50000.00,
     "entryFeePaid" BOOLEAN NOT NULL DEFAULT false,
-    "entryFeeDate" DATETIME,
+    "entryFeeDate" TIMESTAMP,
     "royaltyRate" DECIMAL NOT NULL DEFAULT 4.00,
-    "contractStartDate" DATETIME,
-    "contractEndDate" DATETIME,
+    "contractStartDate" TIMESTAMP,
+    "contractEndDate" TIMESTAMP,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "userId" TEXT NOT NULL,
     CONSTRAINT "franchises_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -50,8 +50,8 @@ CREATE TABLE "warehouses" (
     "email" TEXT,
     "capacity" INTEGER NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
@@ -60,8 +60,8 @@ CREATE TABLE "product_categories" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL
 );
 
 -- CreateTable
@@ -77,8 +77,8 @@ CREATE TABLE "products" (
     "maxStock" INTEGER,
     "imageUrl" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "categoryId" TEXT NOT NULL,
     CONSTRAINT "products_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "product_categories" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -88,10 +88,10 @@ CREATE TABLE "stocks" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "quantity" INTEGER NOT NULL,
     "reservedQty" INTEGER NOT NULL DEFAULT 0,
-    "lastRestockDate" DATETIME,
-    "expirationDate" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "lastRestockDate" TIMESTAMP,
+    "expirationDate" TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "productId" TEXT NOT NULL,
     "warehouseId" TEXT NOT NULL,
     CONSTRAINT "stocks_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -107,18 +107,18 @@ CREATE TABLE "vehicles" (
     "year" INTEGER NOT NULL,
     "vin" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'AVAILABLE',
-    "purchaseDate" DATETIME NOT NULL,
+    "purchaseDate" TIMESTAMP NOT NULL,
     "purchasePrice" DECIMAL NOT NULL,
     "currentMileage" INTEGER,
-    "lastInspectionDate" DATETIME,
-    "nextInspectionDate" DATETIME,
+    "lastInspectionDate" TIMESTAMP,
+    "nextInspectionDate" TIMESTAMP,
     "insuranceNumber" TEXT,
-    "insuranceExpiry" DATETIME,
+    "insuranceExpiry" TIMESTAMP,
     "latitude" REAL,
     "longitude" REAL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "franchiseId" TEXT,
     CONSTRAINT "vehicles_franchiseId_fkey" FOREIGN KEY ("franchiseId") REFERENCES "franchises" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -130,16 +130,16 @@ CREATE TABLE "maintenances" (
     "status" TEXT NOT NULL DEFAULT 'SCHEDULED',
     "title" TEXT NOT NULL,
     "description" TEXT,
-    "scheduledDate" DATETIME NOT NULL,
-    "completedDate" DATETIME,
+    "scheduledDate" TIMESTAMP NOT NULL,
+    "completedDate" TIMESTAMP,
     "cost" DECIMAL,
     "mileage" INTEGER,
     "parts" TEXT,
     "laborHours" DECIMAL,
     "notes" TEXT,
-    "nextMaintenanceDate" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "nextMaintenanceDate" TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "vehicleId" TEXT NOT NULL,
     "createdById" TEXT NOT NULL,
     CONSTRAINT "maintenances_vehicleId_fkey" FOREIGN KEY ("vehicleId") REFERENCES "vehicles" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -151,14 +151,14 @@ CREATE TABLE "orders" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "orderNumber" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'DRAFT',
-    "orderDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "requestedDeliveryDate" DATETIME,
-    "actualDeliveryDate" DATETIME,
+    "orderDate" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "requestedDeliveryDate" TIMESTAMP,
+    "actualDeliveryDate" TIMESTAMP,
     "totalAmount" DECIMAL NOT NULL DEFAULT 0,
     "notes" TEXT,
     "isFromDrivnCook" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "franchiseId" TEXT NOT NULL,
     "createdById" TEXT NOT NULL,
     "updatedById" TEXT,
@@ -185,7 +185,7 @@ CREATE TABLE "order_items" (
 -- CreateTable
 CREATE TABLE "sales_reports" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "reportDate" DATETIME NOT NULL,
+    "reportDate" TIMESTAMP NOT NULL,
     "dailySales" DECIMAL NOT NULL,
     "transactionCount" INTEGER NOT NULL DEFAULT 0,
     "averageTicket" DECIMAL NOT NULL DEFAULT 0,
@@ -193,8 +193,8 @@ CREATE TABLE "sales_reports" (
     "notes" TEXT,
     "royaltyAmount" DECIMAL NOT NULL DEFAULT 0,
     "paymentStatus" TEXT NOT NULL DEFAULT 'PENDING',
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "franchiseId" TEXT NOT NULL,
     "createdById" TEXT NOT NULL,
     CONSTRAINT "sales_reports_franchiseId_fkey" FOREIGN KEY ("franchiseId") REFERENCES "franchises" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -205,15 +205,15 @@ CREATE TABLE "sales_reports" (
 CREATE TABLE "invoices" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "invoiceNumber" TEXT NOT NULL,
-    "issueDate" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "dueDate" DATETIME NOT NULL,
+    "issueDate" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "dueDate" TIMESTAMP NOT NULL,
     "amount" DECIMAL NOT NULL,
     "description" TEXT NOT NULL,
     "paymentStatus" TEXT NOT NULL DEFAULT 'PENDING',
-    "paidDate" DATETIME,
+    "paidDate" TIMESTAMP,
     "pdfPath" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     "franchiseId" TEXT NOT NULL,
     CONSTRAINT "invoices_franchiseId_fkey" FOREIGN KEY ("franchiseId") REFERENCES "franchises" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -226,7 +226,7 @@ CREATE TABLE "audit_logs" (
     "recordId" TEXT NOT NULL,
     "oldValues" TEXT,
     "newValues" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT NOT NULL,
     CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );

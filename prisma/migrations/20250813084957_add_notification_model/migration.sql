@@ -7,13 +7,13 @@ CREATE TABLE "notifications" (
     "title" TEXT NOT NULL,
     "message" TEXT NOT NULL,
     "data" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "readAt" DATETIME,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "readAt" TIMESTAMP,
     "targetUserId" TEXT,
     "targetRole" TEXT,
     "franchiseId" TEXT,
     "relatedEntityId" TEXT,
     "relatedEntityType" TEXT,
     "actionUrl" TEXT,
-    "expiresAt" DATETIME
+    "expiresAt" TIMESTAMP
 );
