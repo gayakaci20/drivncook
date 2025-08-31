@@ -236,6 +236,7 @@ export default function AdminDashboardPage() {
         <TabsList className="rounded-xl">
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="franchises">Franchisés</TabsTrigger>
+          <TabsTrigger value="analysis">Analyses</TabsTrigger>
         </TabsList>
 
         <TabsContent value="performance" className="space-y-4">
@@ -267,7 +268,7 @@ export default function AdminDashboardPage() {
                 return (
                   <div style={{ width: '100%', height: 300 }}>
                     <ResponsiveContainer>
-                      <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                      <AreaChart data={data} margin={{ top: 10, right: 20, left: 80, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" tickFormatter={(v: string) => formatDate(String(v))} tickLine={false} />
                         <YAxis tickLine={false} tickFormatter={(v: number) => formatNumber(Number(v))} />

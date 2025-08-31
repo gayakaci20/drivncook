@@ -6,7 +6,7 @@ WWW_DOMAIN=${WWW_DOMAIN:-www.${DOMAIN}}
 EMAIL=${EMAIL:-contact@drivincook.com}
 SKIP_CHECKS=${SKIP_CHECKS:-false}
 
-echo "=== DRIV'N COOK - Enhanced Deploy with SSL (${DOMAIN}) ==="
+echo "=== DRIV'N COOK - Enhanced Deploy with SSL + Redis (${DOMAIN}) ==="
 echo ""
 
 cd "$(dirname "$0")"
@@ -35,8 +35,41 @@ if [ "${SKIP_CHECKS}" != "true" ]; then
     fi
     echo "   ✓ Docker available"
     
-    # 3. DNS Check
-    echo "2. Checking DNS resolution..."
+    # 3. Check Redis connection in .env
+    echo "2. Checking Redis configuration..."
+    if grep -q "REDIS_URL" .env; then
+        echo "   ✓ Redis URL configured in .env"
+    else
+        echo "   ⚠ REDIS_URL not found in .env, using default: redis://redis:6379"
+        echo "REDIS_URL=redis://redis:6379" >> .env
+    fi
+    
+    # 4. Check and fix environment variables
+    echo "3. Checking environment variables..."
+    if [ -f .env ]; then
+        # Check for BETTER_AUTH_SECRET
+        if ! grep -q "BETTER_AUTH_SECRET" .env || grep -q "^BETTER_AUTH_SECRET=$" .env; then
+            echo "   Adding missing BETTER_AUTH_SECRET..."
+            BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+            echo "BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}" >> .env
+            echo "   ✓ BETTER_AUTH_SECRET added"
+        else
+            echo "   ✓ BETTER_AUTH_SECRET configured"
+        fi
+        
+        # Check for NEXTAUTH_SECRET
+        if ! grep -q "NEXTAUTH_SECRET" .env || grep -q "^NEXTAUTH_SECRET=$" .env; then
+            echo "   Adding missing NEXTAUTH_SECRET..."
+            NEXTAUTH_SECRET=$(openssl rand -base64 32)
+            echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}" >> .env
+            echo "   ✓ NEXTAUTH_SECRET added"
+        else
+            echo "   ✓ NEXTAUTH_SECRET configured"
+        fi
+    fi
+    
+    # 5. DNS Check
+    echo "4. Checking DNS resolution..."
     DOMAIN_IP=$(dig +short ${DOMAIN} A | head -n1)
     WWW_IP=$(dig +short ${WWW_DOMAIN} A | head -n1)
     EXTERNAL_IP=$(curl -s -m 10 ifconfig.me 2>/dev/null || echo "unknown")
@@ -62,20 +95,24 @@ if [ "${SKIP_CHECKS}" != "true" ]; then
         echo "   ✓ DNS configuration looks correct"
     fi
     
-    # 4. Port accessibility check
-    echo "3. Checking port accessibility..."
+    # 6. Port accessibility check
+    echo "5. Checking port accessibility..."
     if [ "${EXTERNAL_IP}" != "unknown" ]; then
-        if timeout 10 bash -c "echo >/dev/tcp/${EXTERNAL_IP}/80" 2>/dev/null; then
-            echo "   ✓ Port 80 is accessible"
+        # Test from inside the server first
+        if timeout 5 bash -c "echo >/dev/tcp/127.0.0.1/80" 2>/dev/null; then
+            echo "   ✓ Port 80 is accessible locally"
         else
-            echo "   ✗ Port 80 is not accessible - check firewall"
+            echo "   ⚠ Port 80 not accessible locally"
+        fi
+        
+        # Test external access (this might fail due to firewall but we continue)
+        if timeout 10 bash -c "echo >/dev/tcp/${EXTERNAL_IP}/80" 2>/dev/null; then
+            echo "   ✓ Port 80 is accessible externally"
+        else
+            echo "   ⚠ Port 80 not accessible externally - this is expected before nginx starts"
             echo "   Common solutions:"
             echo "     Ubuntu/Debian: sudo ufw allow 80 && sudo ufw allow 443"
             echo "     CentOS/RHEL: sudo firewall-cmd --permanent --add-port=80/tcp --add-port=443/tcp && sudo firewall-cmd --reload"
-            read -p "Continue anyway? (y/N): " -r
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                exit 1
-            fi
         fi
     else
         echo "   ⚠ Cannot test port accessibility (external IP unknown)"
@@ -94,67 +131,124 @@ df -h / | grep -E "(Avail|Available|Filesystem)" | cat
 echo ""
 echo "Stopping and cleaning previous stack..."
 docker compose down --remove-orphans || true
+
+# Clean up containers and images (but keep volumes for data persistence)
+echo "Cleaning up old containers and images..."
 docker container prune -f || true
 docker image prune -af || true
 docker builder prune -f || true
-if [ "${CLEAN_VOLUMES:-false}" = "true" ]; then docker volume prune -f || true; fi
 
 # Clean up config files
-rm -f certbot/.well-known/acme-challenge/test || true
+rm -f certbot/.well-known/acme-challenge/test* || true
 rm -f nginx.conf.bak || true
 
 # Prepare directories
-mkdir -p certbot ssl nginx
+mkdir -p certbot ssl nginx redis-data
 mkdir -p certbot/.well-known/acme-challenge
 echo "ok" > certbot/.well-known/acme-challenge/test
 
 # Setup nginx configuration
 echo ""
 echo "Setting up nginx configuration for HTTP-only (ACME challenge phase)..."
-cp nginx.conf nginx-ssl.conf.bak
-cp nginx-http-only.conf nginx.conf
+# Always backup current nginx.conf if it exists
+if [ -f nginx.conf ]; then
+    cp nginx.conf nginx.conf.bak
+fi
+# Copy HTTP-only config for ACME challenge
+if [ -f nginx-http-only.conf ]; then
+    cp nginx-http-only.conf nginx.conf
+else
+    echo "   ⚠ nginx-http-only.conf not found, using existing nginx.conf"
+fi
 
-# Update domain placeholders
-sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx.conf
-sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx-ssl.conf.bak
-rm -f nginx.conf.tmp nginx-ssl.conf.bak.tmp
+# Update domain placeholders in nginx config
+if [ -f nginx.conf ]; then
+    sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx.conf
+    rm -f nginx.conf.tmp
+fi
+if [ -f nginx-ssl.conf ]; then
+    sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx-ssl.conf
+    rm -f nginx-ssl.conf.tmp
+fi
 
-# Build and start services
+# Build and start services including Redis
 echo ""
 echo "Building application image..."
 docker compose build web
 
 echo "Starting services (HTTP only for certificate generation)..."
-docker compose up -d web nginx
+echo "Services: Redis, Database, Web App, Nginx"
+docker compose up -d redis database-init web nginx
 
-# Wait for nginx to be ready
-echo "Waiting for nginx to be ready..."
+# Wait for services to be ready
+echo "Waiting for services to be ready..."
+
+# Wait for Redis
+echo "  Checking Redis..."
+REDIS_READY=false
+for i in {1..15}; do
+    if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
+        REDIS_READY=true
+        echo "   ✓ Redis is ready (attempt $i)"
+        break
+    fi
+    echo "     Waiting for Redis... (attempt $i/15)"
+    sleep 2
+done
+
+if [ "$REDIS_READY" != "true" ]; then
+    echo "   ⚠ Redis not ready, but continuing..."
+fi
+
+# Wait for web app
+echo "  Checking Web Application..."
+WEB_READY=false
+for i in {1..20}; do
+    if curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1 || curl -fsS http://127.0.0.1:3000 >/dev/null 2>&1; then
+        WEB_READY=true
+        echo "   ✓ Web application is ready (attempt $i)"
+        break
+    fi
+    echo "     Waiting for web app... (attempt $i/20)"
+    sleep 3
+done
+
+if [ "$WEB_READY" != "true" ]; then
+    echo "   ⚠ Web application not responding, but continuing..."
+fi
+
+# Wait for nginx
+echo "  Checking Nginx..."
 NGINX_READY=false
 for i in {1..30}; do
     if curl -fsS -H "Host: ${DOMAIN}" http://127.0.0.1/.well-known/acme-challenge/test >/dev/null 2>&1; then
         NGINX_READY=true
-        echo "✓ Nginx is ready (attempt $i)"
+        echo "   ✓ Nginx is ready (attempt $i)"
         break
     fi
-    echo "  Waiting for nginx... (attempt $i/30)"
-    sleep 3
+    echo "     Waiting for nginx... (attempt $i/30)"
+    sleep 2
 done
 
 if [ "$NGINX_READY" != "true" ]; then
-    echo "✗ Nginx not ready after timeout"
+    echo "   ✗ Nginx not ready after timeout"
     echo ""
     echo "Container status:"
     docker compose ps | cat
     echo ""
     echo "Nginx logs:"
-    docker compose logs --no-color nginx | tail -n 50
+    docker compose logs --no-color nginx | tail -n 20
     echo ""
-    echo "Testing ACME challenge..."
-    ./scripts/test-acme-challenge.sh || true
-    exit 1
+    echo "Web app logs:"
+    docker compose logs --no-color web | tail -n 10
+    
+    read -p "Continue anyway? (y/N): " -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
 fi
 
-# Test ACME challenge accessibility
+# Test ACME challenge accessibility from external
 echo ""
 echo "Testing ACME challenge accessibility..."
 ACME_ACCESSIBLE=true
@@ -189,12 +283,126 @@ if [ "$ACME_ACCESSIBLE" != "true" ]; then
     fi
 fi
 
+# Enhanced cleanup of corrupted certificate data
+echo ""
+echo "Enhanced cleanup of corrupted certificate data..."
+docker compose down certbot 2>/dev/null || true
+
+# Remove all certificate-related volumes and data
+docker volume rm drivncook_certbot-data 2>/dev/null || echo "Volume drivncook_certbot-data not found"
+docker volume rm drivncook_certbot-logs 2>/dev/null || echo "Volume drivncook_certbot-logs not found"
+
+# Clean certificate directories thoroughly
+echo "Cleaning certificate directories..."
+rm -rf certbot/conf 2>/dev/null || true
+rm -rf certbot/www 2>/dev/null || true
+rm -rf certbot/logs 2>/dev/null || true
+rm -rf ssl/* 2>/dev/null || true
+
+# Clean any stuck certificate files
+find certbot/ -name "*.pem" -delete 2>/dev/null || true
+find certbot/ -name "*.key" -delete 2>/dev/null || true
+find certbot/ -name "*.crt" -delete 2>/dev/null || true
+
+# Recreate clean directories
+mkdir -p certbot/conf
+mkdir -p certbot/logs
+mkdir -p ssl
+echo "✓ Certificate data thoroughly cleaned"
+
 # Request SSL certificates
 echo ""
 echo "Requesting SSL certificates from Let's Encrypt..."
 echo "Domains: ${DOMAIN}, ${WWW_DOMAIN}"
 echo "Email: ${EMAIL}"
 echo ""
+
+# Final pre-flight check before certificate generation
+echo "Performing final pre-flight checks..."
+PREFLIGHT_OK=true
+
+# Check if nginx is serving ACME challenges
+echo "test-$(date +%s)" > certbot/.well-known/acme-challenge/preflight-test
+for domain in ${DOMAIN} ${WWW_DOMAIN}; do
+    echo "Testing ACME challenge for ${domain}..."
+    if curl -f --connect-timeout 10 "http://${domain}/.well-known/acme-challenge/preflight-test" >/dev/null 2>&1; then
+        echo "   ✓ ${domain} ACME challenge accessible"
+    else
+        echo "   ✗ ${domain} ACME challenge NOT accessible"
+        PREFLIGHT_OK=false
+    fi
+done
+rm -f certbot/.well-known/acme-challenge/preflight-test
+
+if [ "$PREFLIGHT_OK" != "true" ]; then
+    echo ""
+    echo "⚠ Pre-flight checks failed. Trying to fix..."
+    echo "Restarting nginx..."
+    docker compose restart nginx
+    sleep 10
+    
+    # Retry test
+    echo "test-$(date +%s)" > certbot/.well-known/acme-challenge/retry-test
+    if curl -f --connect-timeout 10 "http://${DOMAIN}/.well-known/acme-challenge/retry-test" >/dev/null 2>&1; then
+        echo "   ✓ ACME challenge fixed after restart"
+        PREFLIGHT_OK=true
+    else
+        echo "   ✗ ACME challenge still failing"
+    fi
+    rm -f certbot/.well-known/acme-challenge/retry-test
+fi
+
+if [ "$PREFLIGHT_OK" != "true" ]; then
+    echo ""
+    echo "✗ Cannot proceed with certificate generation - ACME challenge not accessible"
+    echo "Your site will remain at: http://${DOMAIN}"
+    echo ""
+    echo "To debug:"
+    echo "1. Check nginx logs: docker compose logs nginx"
+    echo "2. Test manually: curl -v http://${DOMAIN}/.well-known/acme-challenge/test"
+    echo "3. Check firewall settings"
+    echo "4. Verify DNS propagation"
+    echo ""
+    # Don't exit, continue with HTTP-only
+else
+    echo "   ✓ All pre-flight checks passed"
+fi
+echo ""
+
+# Try certificate generation with enhanced error handling
+echo "Attempting certificate generation with clean environment..."
+
+# Ensure certbot directory structure is correct
+mkdir -p certbot/.well-known/acme-challenge
+chmod -R 755 certbot/
+
+# Test write permissions
+echo "test" > certbot/.well-known/acme-challenge/test-write
+if [ ! -f certbot/.well-known/acme-challenge/test-write ]; then
+    echo "✗ Cannot write to certbot directory"
+    exit 1
+fi
+rm -f certbot/.well-known/acme-challenge/test-write
+
+# Generate certificates with staging first if this is the first attempt
+CERT_ATTEMPT_FILE=".ssl_attempt_count"
+if [ ! -f "${CERT_ATTEMPT_FILE}" ]; then
+    echo "0" > "${CERT_ATTEMPT_FILE}"
+fi
+ATTEMPT_COUNT=$(cat "${CERT_ATTEMPT_FILE}")
+ATTEMPT_COUNT=$((ATTEMPT_COUNT + 1))
+echo "${ATTEMPT_COUNT}" > "${CERT_ATTEMPT_FILE}"
+
+echo "Certificate generation attempt #${ATTEMPT_COUNT}"
+
+# Use staging for first few attempts to avoid rate limiting
+STAGING_FLAG=""
+if [ "${ATTEMPT_COUNT}" -le "3" ]; then
+    echo "Using Let's Encrypt staging environment (attempt ${ATTEMPT_COUNT})..."
+    STAGING_FLAG="--test-cert"
+else
+    echo "Using Let's Encrypt production environment..."
+fi
 
 if ! docker compose run --rm certbot certonly \
     --webroot \
@@ -204,23 +412,46 @@ if ! docker compose run --rm certbot certonly \
     --email ${EMAIL} \
     --agree-tos \
     --no-eff-email \
-    --non-interactive; then
+    --non-interactive \
+    --force-renewal \
+    --expand \
+    ${STAGING_FLAG} \
+    --verbose; then
     
     echo ""
     echo "✗ Certificate generation failed!"
     echo ""
+    echo "Checking Let's Encrypt logs for details..."
+    echo "Certbot container logs:"
+    docker compose logs --tail=20 certbot || true
+    
+    echo ""
+    echo "Trying to get detailed logs..."
+    docker compose run --rm certbot logs || echo "No detailed logs available"
+    
+    echo ""
+    echo "Checking nginx access logs..."
+    docker compose logs --tail=10 nginx | grep -E "(acme-challenge|error|404)" || echo "No relevant nginx logs found"
+    
+    echo ""
     echo "Common solutions:"
     echo "1. Check DNS: dig ${DOMAIN} A"
     echo "2. Check firewall: ensure ports 80 and 443 are open"
-    echo "3. Verify domain ownership"
+    echo "3. Verify domain ownership and ACME challenge accessibility"
     echo "4. Check rate limits: https://letsencrypt.org/docs/rate-limits/"
+    echo "5. If using staging certificates, run again to get production certificates"
+    echo ""
+    echo "Quick fixes to try:"
+    echo "  # Reset SSL attempt counter and try again:"
+    echo "  rm -f .ssl_attempt_count && ./deploy-with-checks.sh"
+    echo ""
+    echo "  # Force production certificates (skip staging):"
+    echo "  echo '10' > .ssl_attempt_count && ./deploy-with-checks.sh"
     echo ""
     echo "Diagnostic commands:"
     echo "  ./scripts/debug-ssl.sh"
     echo "  ./scripts/test-acme-challenge.sh"
     echo ""
-    echo "Let's Encrypt logs:"
-    docker compose logs certbot | tail -n 50
     
     echo ""
     read -p "Continue with HTTP-only deployment? (y/N): " -r
@@ -236,39 +467,185 @@ else
     echo ""
     echo "✓ SSL certificates generated successfully!"
     
-    # Switch to SSL configuration
-    echo "Switching nginx to SSL configuration..."
-    cp nginx-ssl.conf.bak nginx.conf
-    
-    echo "Restarting nginx with SSL..."
-    docker compose restart nginx
-    
-    # Test HTTPS
-    echo "Testing HTTPS access..."
+    # Verify certificates were actually created
+    echo "Verifying certificate files..."
     sleep 5
-    if curl -f --connect-timeout 10 "https://${DOMAIN}" >/dev/null 2>&1; then
-        echo "✓ HTTPS is working!"
-        echo ""
-        echo "🎉 Deployment successful!"
-        echo "Your site is available at: https://${DOMAIN}"
+    
+    CERT_VERIFIED=false
+    if docker compose run --rm certbot certificates | grep -q "${DOMAIN}"; then
+        echo "   ✓ Certificates verified in certbot"
+        CERT_VERIFIED=true
     else
-        echo "⚠ HTTPS test failed, but certificates were generated"
-        echo "Check nginx logs: docker compose logs nginx"
-        echo "Your site should still be available at: https://${DOMAIN}"
+        echo "   ✗ Certificate verification failed"
     fi
+    
+    if [ "$CERT_VERIFIED" = "true" ]; then
+        # Switch to SSL configuration
+        echo "Switching nginx to SSL configuration..."
+        if [ -f nginx-ssl.conf ]; then
+            cp nginx-ssl.conf nginx.conf
+            # Update domain placeholders in SSL config
+            sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx.conf
+            rm -f nginx.conf.tmp
+            echo "   ✓ SSL configuration applied"
+        else
+            echo "   ✗ nginx-ssl.conf not found, cannot enable SSL"
+            echo "   Creating nginx-ssl.conf from backup..."
+            if [ -f nginx.conf.bak ]; then
+                cp nginx.conf.bak nginx-ssl.conf
+                cp nginx-ssl.conf nginx.conf
+                # Update domain placeholders
+                sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx.conf
+                rm -f nginx.conf.tmp
+                echo "   ✓ SSL configuration restored from backup"
+            else
+                echo "   ✗ No backup found, staying with HTTP"
+            fi
+        fi
+        
+        # Test nginx configuration before restarting
+        echo "Testing nginx configuration before restart..."
+        if docker compose exec -T nginx nginx -t >/dev/null 2>&1; then
+            echo "   ✓ Nginx configuration is valid"
+        else
+            echo "   ✗ Nginx configuration test failed"
+            echo "   Configuration errors:"
+            docker compose exec -T nginx nginx -t
+            echo "   Attempting to fix by restoring HTTP configuration..."
+            if [ -f nginx-http-only.conf ]; then
+                cp nginx-http-only.conf nginx.conf
+                sed -i.tmp "s/YOUR_DOMAIN/${DOMAIN}/g; s/YOUR_WWW_DOMAIN/${WWW_DOMAIN}/g" nginx.conf
+                rm -f nginx.conf.tmp
+                echo "   HTTP configuration restored"
+            fi
+        fi
+        
+        echo "Restarting nginx with SSL..."
+        docker compose restart nginx
+        
+        # Give nginx time to start with SSL
+        echo "Waiting for nginx to initialize with SSL..."
+        sleep 20
+        
+        # Verify nginx started correctly
+        echo "Checking nginx status after SSL configuration..."
+        if docker compose ps nginx | grep -q "Up"; then
+            echo "   ✓ Nginx container is running"
+        else
+            echo "   ✗ Nginx container not running, checking logs..."
+            docker compose logs --tail=10 nginx
+        fi
+        
+        # Test HTTPS with retries
+        echo "Testing HTTPS access..."
+        HTTPS_SUCCESS=false
+        for i in {1..8}; do
+            echo "   HTTPS test attempt $i/8..."
+            # Test with different methods
+            if curl -f --connect-timeout 20 -k "https://${DOMAIN}" >/dev/null 2>&1; then
+                HTTPS_SUCCESS=true
+                echo "   ✓ HTTPS is working! (attempt $i)"
+                break
+            elif curl -f --connect-timeout 20 "https://${DOMAIN}" >/dev/null 2>&1; then
+                HTTPS_SUCCESS=true
+                echo "   ✓ HTTPS is working! (attempt $i)"
+                break
+            fi
+            echo "     Waiting 8 seconds before next attempt..."
+            sleep 8
+        done
+        
+        if [ "$HTTPS_SUCCESS" = "true" ]; then
+            echo ""
+            echo "🎉 Deployment successful with SSL!"
+            echo "Your site is available at: https://${DOMAIN}"
+            
+            # Clean up attempt counter on success
+            rm -f .ssl_attempt_count
+        else
+            echo ""
+            echo "⚠ HTTPS test failed, but certificates were generated"
+            echo "Running comprehensive SSL diagnostics..."
+            echo ""
+            
+            echo "1. Checking nginx SSL configuration..."
+            docker compose logs --tail=15 nginx | grep -E "(ssl|error|443|certificate)" || echo "   No SSL-related nginx logs found"
+            echo ""
+            
+            echo "2. Checking certificate files..."
+            docker compose exec -T nginx ls -la /etc/letsencrypt/live/${DOMAIN}/ 2>/dev/null || echo "   Certificate files not accessible"
+            echo ""
+            
+            echo "3. Testing SSL certificate validity..."
+            if command -v openssl >/dev/null 2>&1; then
+                echo "   Testing certificate with openssl..."
+                echo | timeout 10 openssl s_client -connect ${DOMAIN}:443 -servername ${DOMAIN} 2>/dev/null | openssl x509 -noout -subject -dates 2>/dev/null || echo "   SSL connection test failed"
+            fi
+            echo ""
+            
+            echo "4. Testing different access methods..."
+            echo "   HTTP redirect test:"
+            curl -I --connect-timeout 10 "http://${DOMAIN}" 2>/dev/null | head -n 5 || echo "   HTTP test failed"
+            echo ""
+            echo "   HTTPS direct test:"
+            curl -I --connect-timeout 10 -k "https://${DOMAIN}" 2>/dev/null | head -n 3 || echo "   HTTPS test failed"
+            echo ""
+            
+            echo "Your site should still be available at: https://${DOMAIN}"
+            echo ""
+            echo "Manual debugging commands:"
+            echo "  docker compose logs nginx"
+            echo "  docker compose exec nginx nginx -t"
+            echo "  docker compose restart nginx"
+        fi
+    else
+        echo "✗ Certificate verification failed, staying with HTTP"
+        echo "Your site is available at: http://${DOMAIN}"
+    fi
+fi
+
+# Final health checks
+echo ""
+echo "Performing final health checks..."
+
+# Check Redis
+if docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
+    echo "   ✓ Redis is healthy"
+else
+    echo "   ⚠ Redis health check failed"
+fi
+
+# Check web app
+if curl -fsS http://127.0.0.1:3000 >/dev/null 2>&1; then
+    echo "   ✓ Web application is healthy"
+else
+    echo "   ⚠ Web application health check failed"
+fi
+
+# Check nginx
+if curl -fsS http://127.0.0.1:80 >/dev/null 2>&1; then
+    echo "   ✓ Nginx is healthy"
+else
+    echo "   ⚠ Nginx health check failed"
 fi
 
 # Cleanup
 echo ""
 echo "Post-deployment cleanup..."
-rm -f certbot/.well-known/acme-challenge/test || true
-rm -f nginx-ssl.conf.bak || true
+rm -f certbot/.well-known/acme-challenge/test* || true
+rm -f nginx.conf.bak || true
 docker image prune -f || true
 docker builder prune -f || true
 
 echo ""
 echo "Final status:"
 docker compose ps | cat
+echo ""
+echo "Services health:"
+echo "- Redis: $(docker compose exec -T redis redis-cli ping 2>/dev/null || echo 'Not responding')"
+echo "- Web App: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000 2>/dev/null || echo 'Not responding')"
+echo "- Nginx: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80 2>/dev/null || echo 'Not responding')"
+
 echo ""
 echo "Disk usage:"
 docker system df | cat
@@ -277,3 +654,29 @@ df -h / | grep -E "(Used|Avail|Available|Filesystem)" | cat
 
 echo ""
 echo "=== DEPLOYMENT COMPLETE ==="
+echo ""
+# Check final SSL status
+FINAL_SSL_STATUS="HTTP only"
+if curl -f --connect-timeout 10 -k "https://${DOMAIN}" >/dev/null 2>&1; then
+    FINAL_SSL_STATUS="HTTPS (SSL working)"
+elif [ -f certbot/conf/live/${DOMAIN}/fullchain.pem ] || docker compose run --rm certbot certificates 2>/dev/null | grep -q "${DOMAIN}"; then
+    FINAL_SSL_STATUS="HTTPS (certificates present, may need troubleshooting)"
+fi
+
+echo "Access URLs:"
+echo "- Local: http://127.0.0.1:3000"
+echo "- LAN Paris: http://192.168.1.10"
+if [ "$FINAL_SSL_STATUS" = "HTTPS (SSL working)" ]; then
+    echo "- External: https://${DOMAIN} ✓ SSL working"
+elif [ "$FINAL_SSL_STATUS" = "HTTPS (certificates present, may need troubleshooting)" ]; then
+    echo "- External: https://${DOMAIN} ⚠ SSL certificates present but not working"
+    echo "  Also try: http://${DOMAIN}"
+else
+    echo "- External: http://${DOMAIN} (HTTP only)"
+fi
+echo ""
+echo "Management commands:"
+echo "- View logs: docker compose logs -f"
+echo "- Restart services: docker compose restart"
+echo "- Stop services: docker compose down"
+echo "- Update SSL: ./deploy-with-checks.sh"

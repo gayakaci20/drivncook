@@ -14,6 +14,8 @@
     "db:reset": "cross-env DATABASE_URL='file:./dev.db' npx prisma migrate reset --force",
     "db:studio": "cross-env DATABASE_URL='file:./dev.db' npx prisma studio",
     "db:generate": "cross-env DATABASE_URL='file:./dev.db' npx prisma generate",
+    "test:seed": "cross-env DATABASE_URL='file:./dev.db' tsx src/scripts/create-test-data.ts",
+    "test:clear": "cross-env DATABASE_URL='file:./dev.db' tsx src/scripts/create-test-data.ts --clear",
     "postinstall": "prisma generate"
   },
   "dependencies": {

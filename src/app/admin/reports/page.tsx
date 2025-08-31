@@ -163,22 +163,12 @@ export default function AdminReportsPage() {
     }
   }
 
-  const downloadReport = async (reportId: string, format: string = 'pdf') => {
+  const downloadReport = async (report: any) => {
     try {
-      const response = await fetch(`/api/reports/${reportId}/download?format=${format}`)
-      
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `rapport-${reportId}.${format}`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
+      if (report.fileUrl) {
+        window.open(report.fileUrl, '_blank')
       } else {
-        toast.error('Erreur lors du téléchargement')
+        toast.error('Aucun fichier PDF disponible pour ce rapport')
       }
     } catch (error) {
       console.error('Erreur lors du téléchargement:', error)
@@ -636,8 +626,8 @@ export default function AdminReportsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => downloadReport(report.id, 'pdf')}
-                            disabled={report.status !== 'GENERATED'}
+                            onClick={() => downloadReport(report)}
+                            disabled={!report.fileUrl}
                           >
                             <Download className="h-4 w-4" />
                           </Button>
