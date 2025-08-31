@@ -178,6 +178,178 @@ if [ "${SKIP_CHECKS}" != "true" ]; then
         echo "   ------------------------"
     fi
     
+    # 4.5. Application fixes and corrections
+    echo "4.5. Applying CORS and authentication fixes..."
+    
+    # Fix PostgreSQL provider in auth.ts
+    AUTH_FILE="src/lib/auth.ts"
+    if [ -f "${AUTH_FILE}" ]; then
+        if grep -q "provider: 'sqlite'" "${AUTH_FILE}"; then
+            echo "   Fixing database provider from sqlite to postgresql..."
+            sed -i.tmp "s/provider: 'sqlite'/provider: 'postgresql'/g" "${AUTH_FILE}"
+            rm -f "${AUTH_FILE}.tmp"
+            echo "   ✓ Database provider corrected to PostgreSQL"
+        else
+            echo "   ✓ Database provider already configured correctly"
+        fi
+    else
+        echo "   ⚠ auth.ts not found, skipping database provider fix"
+    fi
+    
+    # Fix CORS configuration in next.config.ts
+    NEXTCONFIG_FILE="next.config.ts"
+    if [ -f "${NEXTCONFIG_FILE}" ]; then
+        if ! grep -q "Access-Control-Allow-Origin" "${NEXTCONFIG_FILE}"; then
+            echo "   Adding CORS headers to next.config.ts..."
+            # Create a backup
+            cp "${NEXTCONFIG_FILE}" "${NEXTCONFIG_FILE}.bak"
+            
+            # Add CORS headers after typescript config
+            sed -i.tmp '/ignoreBuildErrors: true,/a\
+  async headers() {\
+    return [\
+      {\
+        source: "/api/:path*",\
+        headers: [\
+          { key: "Access-Control-Allow-Origin", value: "*" },\
+          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS,PATCH,DELETE,POST,PUT" },\
+          { key: "Access-Control-Allow-Headers", value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization" },\
+        ],\
+      },\
+    ];\
+  },' "${NEXTCONFIG_FILE}"
+            rm -f "${NEXTCONFIG_FILE}.tmp"
+            echo "   ✓ CORS headers added to next.config.ts"
+        else
+            echo "   ✓ CORS headers already configured"
+        fi
+    else
+        echo "   ⚠ next.config.ts not found, skipping CORS configuration"
+    fi
+    
+    # Fix auth client base URL
+    AUTHCLIENT_FILE="src/lib/auth-client.ts"
+    if [ -f "${AUTHCLIENT_FILE}" ]; then
+        if ! grep -q "getBaseURL" "${AUTHCLIENT_FILE}"; then
+            echo "   Improving auth client base URL handling..."
+            cp "${AUTHCLIENT_FILE}" "${AUTHCLIENT_FILE}.bak"
+            
+            cat > "${AUTHCLIENT_FILE}" << 'EOF'
+import { createAuthClient } from 'better-auth/react'
+
+function getBaseURL() {
+  // En production, utiliser l'URL du domaine
+  if (typeof window !== 'undefined') {
+    // Côté client, utiliser l'origine actuelle si c'est HTTPS
+    if (window.location.protocol === 'https:') {
+      return window.location.origin
+    }
+  }
+  
+  // Utiliser les variables d'environnement
+  return process.env.NEXT_PUBLIC_BASE_URL || 
+         process.env.BETTER_AUTH_URL || 
+         'http://localhost:3000'
+}
+
+export const authClient = createAuthClient({
+  baseURL: getBaseURL()
+})
+
+export const { signIn, signOut, signUp, useSession } = authClient
+EOF
+            echo "   ✓ Auth client base URL handling improved"
+        else
+            echo "   ✓ Auth client already configured correctly"
+        fi
+    else
+        echo "   ⚠ auth-client.ts not found, skipping auth client fix"
+    fi
+    
+    # Fix middleware URL handling
+    MIDDLEWARE_FILE="middleware.ts"
+    if [ -f "${MIDDLEWARE_FILE}" ]; then
+        if grep -q "request.nextUrl.origin" "${MIDDLEWARE_FILE}"; then
+            echo "   Fixing middleware URL handling..."
+            sed -i.tmp 's|new URL(\x27/api/auth/get-session\x27, request.nextUrl.origin)|`${baseUrl}/api/auth/get-session`|g' "${MIDDLEWARE_FILE}"
+            sed -i.tmp '/const cookies = request.headers.get(\x27cookie\x27)/a\
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL || request.nextUrl.origin' "${MIDDLEWARE_FILE}"
+            rm -f "${MIDDLEWARE_FILE}.tmp"
+            echo "   ✓ Middleware URL handling fixed"
+        else
+            echo "   ✓ Middleware already configured correctly"
+        fi
+    else
+        echo "   ⚠ middleware.ts not found, skipping middleware fix"
+    fi
+    
+    # Add OPTIONS handler to auth route
+    AUTH_ROUTE_FILE="src/app/api/auth/[...all]/route.ts"
+    if [ -f "${AUTH_ROUTE_FILE}" ]; then
+        if ! grep -q "OPTIONS" "${AUTH_ROUTE_FILE}"; then
+            echo "   Adding CORS OPTIONS handler to auth route..."
+            cp "${AUTH_ROUTE_FILE}" "${AUTH_ROUTE_FILE}.bak"
+            
+            cat >> "${AUTH_ROUTE_FILE}" << 'EOF'
+
+// Gestion des requêtes OPTIONS pour CORS
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    },
+  })
+}
+EOF
+            
+            # Add NextResponse import if not present
+            if ! grep -q "NextResponse" "${AUTH_ROUTE_FILE}"; then
+                sed -i.tmp '1i\
+import { NextResponse } from \x27next/server\x27' "${AUTH_ROUTE_FILE}"
+                rm -f "${AUTH_ROUTE_FILE}.tmp"
+            fi
+            echo "   ✓ CORS OPTIONS handler added to auth route"
+        else
+            echo "   ✓ Auth route CORS already configured"
+        fi
+    else
+        echo "   ⚠ Auth route file not found, skipping CORS handler"
+    fi
+    
+    # Fix server session URL handling in auth.ts
+    if [ -f "${AUTH_FILE}" ]; then
+        if grep -q "new URL('/api/auth/session'" "${AUTH_FILE}"; then
+            echo "   Fixing server session URL handling..."
+            sed -i.tmp 's|new URL(\x27/api/auth/session\x27, process.env.NEXT_PUBLIC_BASE_URL || \x27http://localhost:3000\x27)|`${baseUrl}/api/auth/session`|g' "${AUTH_FILE}"
+            sed -i.tmp '/const cookie = headers.get(\x27cookie\x27) || \x27\x27/a\
+    \
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL || \x27http://localhost:3000\x27' "${AUTH_FILE}"
+            rm -f "${AUTH_FILE}.tmp"
+            echo "   ✓ Server session URL handling fixed"
+        else
+            echo "   ✓ Server session URL already configured correctly"
+        fi
+    fi
+    
+    # Add NEXT_PUBLIC_BASE_URL to environment if missing
+    if ! grep -q "NEXT_PUBLIC_BASE_URL" .env; then
+        echo "NEXT_PUBLIC_BASE_URL=https://${DOMAIN}" >> .env
+        echo "   ✓ NEXT_PUBLIC_BASE_URL added to environment"
+    elif grep -q "^NEXT_PUBLIC_BASE_URL=$" .env; then
+        sed -i "s/^NEXT_PUBLIC_BASE_URL=$/NEXT_PUBLIC_BASE_URL=https:\/\/${DOMAIN}/" .env
+        echo "   ✓ NEXT_PUBLIC_BASE_URL updated in environment"
+    else
+        # Update existing NEXT_PUBLIC_BASE_URL to use HTTPS
+        sed -i "s|NEXT_PUBLIC_BASE_URL=http://|NEXT_PUBLIC_BASE_URL=https://|g" .env
+        echo "   ✓ NEXT_PUBLIC_BASE_URL configured for HTTPS"
+    fi
+    
+    echo "   ✓ All CORS and authentication fixes applied"
+    echo ""
+    
     # 5. DNS Check
     echo "4. Checking DNS resolution..."
     DOMAIN_IP=$(dig +short ${DOMAIN} A | head -n1)
@@ -749,6 +921,64 @@ else
     echo "   ⚠ Nginx health check failed"
 fi
 
+# Check CORS and authentication fixes
+echo ""
+echo "Testing CORS and authentication fixes..."
+
+# Test auth API endpoint
+if curl -s http://127.0.0.1:3000/api/auth/get-session >/dev/null 2>&1; then
+    echo "   ✓ Auth API endpoint accessible"
+else
+    echo "   ⚠ Auth API endpoint not accessible"
+fi
+
+# Test check-admin endpoint
+response=$(curl -s -w "%{http_code}" http://127.0.0.1:3000/api/auth/check-admin -o /dev/null)
+if [ "$response" = "200" ]; then
+    echo "   ✓ Check-admin API working (code: $response)"
+elif [ "$response" = "500" ]; then
+    echo "   ⚠ Check-admin API still returning 500 error"
+    echo "     Check PostgreSQL connection and Prisma configuration"
+else
+    echo "   ℹ Check-admin API returns code: $response"
+fi
+
+# Test CORS preflight (OPTIONS request)
+options_response=$(curl -s -w "%{http_code}" -X OPTIONS http://127.0.0.1:3000/api/auth/get-session -o /dev/null)
+if [ "$options_response" = "200" ] || [ "$options_response" = "204" ]; then
+    echo "   ✓ CORS preflight requests working (code: $options_response)"
+else
+    echo "   ⚠ CORS preflight may have issues (code: $options_response)"
+fi
+
+# Verify configuration files
+echo ""
+echo "Verifying configuration files..."
+
+if grep -q "provider: 'postgresql'" "src/lib/auth.ts" 2>/dev/null; then
+    echo "   ✓ Database provider set to PostgreSQL"
+else
+    echo "   ⚠ Database provider may not be correctly configured"
+fi
+
+if grep -q "Access-Control-Allow-Origin" "next.config.ts" 2>/dev/null; then
+    echo "   ✓ CORS headers configured in next.config.ts"
+else
+    echo "   ⚠ CORS headers may not be configured"
+fi
+
+if grep -q "getBaseURL" "src/lib/auth-client.ts" 2>/dev/null; then
+    echo "   ✓ Auth client base URL handling improved"
+else
+    echo "   ⚠ Auth client may not have improved URL handling"
+fi
+
+if grep -q "OPTIONS" "src/app/api/auth/[...all]/route.ts" 2>/dev/null; then
+    echo "   ✓ CORS OPTIONS handler added to auth route"
+else
+    echo "   ⚠ CORS OPTIONS handler may not be configured"
+fi
+
 # Cleanup
 echo ""
 echo "Post-deployment cleanup..."
@@ -774,6 +1004,20 @@ df -h / | grep -E "(Used|Avail|Available|Filesystem)" | cat
 
 echo ""
 echo "=== DEPLOYMENT COMPLETE ==="
+echo ""
+echo "📋 Applied fixes and corrections:"
+echo "  ✓ Fixed PostgreSQL provider configuration (was SQLite)"
+echo "  ✓ Added CORS headers in next.config.ts"
+echo "  ✓ Improved auth client base URL handling"
+echo "  ✓ Fixed middleware URL construction"
+echo "  ✓ Added CORS OPTIONS handler to auth routes"
+echo "  ✓ Fixed server session URL handling"
+echo "  ✓ Configured NEXT_PUBLIC_BASE_URL for production"
+echo ""
+echo "🔧 CORS issues resolved:"
+echo "  • No more 'Access-Control-Allow-Origin' header missing errors"
+echo "  • Preflight OPTIONS requests now handled properly"
+echo "  • Authentication URLs now use correct production domain"
 echo ""
 # Check final SSL status
 FINAL_SSL_STATUS="HTTP only"

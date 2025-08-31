@@ -6,7 +6,7 @@ import { prisma } from './prisma'
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
-    provider: 'sqlite'
+    provider: 'postgresql'
   }),
   plugins: [
     nextCookies()
@@ -90,8 +90,9 @@ export async function getServerSession(headers: Headers) {
   try {
     const cookie = headers.get('cookie') || ''
     
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000'
     const response = await fetch(
-      new URL('/api/auth/session', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'), 
+      `${baseUrl}/api/auth/session`, 
       {
         headers: { cookie },
       }

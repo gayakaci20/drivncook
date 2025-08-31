@@ -10,11 +10,12 @@ export async function middleware(request: NextRequest) {
   }
 
     const cookies = request.headers.get('cookie')
-    console.log('Making session request with cookies:', cookies ? 'Yes' : 'No')
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL || request.nextUrl.origin    console.log('Making session request with cookies:', cookies ? 'Yes' : 'No')
     console.log('Cookie content:', cookies)
     
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.BETTER_AUTH_URL || request.nextUrl.origin
     const sessionResponse = await fetch(
-      new URL('/api/auth/get-session', request.nextUrl.origin),
+      `${baseUrl}/api/auth/get-session`,
       {
         headers: {
           cookie: cookies || '',
